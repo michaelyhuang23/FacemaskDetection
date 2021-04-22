@@ -8,10 +8,10 @@ import time
 ProposerModel = FullProposer()
 
 print('loading data and preprocessing...')
-with open('data_boxes_train.txt', 'r') as of:
+with open('Data/data_boxes_train.txt', 'r') as of:
     all_boxes = json.load(of)
 
-with open('data_sizes_train.txt', 'r') as of:
+with open('Data/data_sizes_train.txt', 'r') as of:
     all_sizes = json.load(of)
 
 total_size = len(all_boxes)
@@ -92,33 +92,46 @@ all_objectnesses = []
 for i in range(total_size):
     all_objectnesses.append(boxes_to_losses(*all_sizes[i], all_boxes[i]))
 
-all_objectnesses = [[sample[i] for sample in all_objectnesses] for i in range(5)]
-# flips the dimension so the first dimension is the size and the second the sample
-
 validation_split_rate = 0.2
 train_size = int(total_size*(1-validation_split_rate))
 val_size = total_size-train_size
 del all_boxes
 del all_sizes
 
-train_objectnesses = all_objectnesses[:][:train_size]
-val_objectnesses = all_objectnesses[:][train_size:]
+train_objectnesses = all_objectnesses[:train_size]
+val_objectnesses = all_objectnesses[train_size:]
 
-train_objectness_dataset0 = tf.data.Dataset.from_generator(lambda: train_objectnesses[0], output_types=(tf.float32),output_shapes=(None,None))
-train_objectness_dataset1 = tf.data.Dataset.from_generator(lambda: train_objectnesses[1], output_types=(tf.float32),output_shapes=(None,None))
-train_objectness_dataset2 = tf.data.Dataset.from_generator(lambda: train_objectnesses[2], output_types=(tf.float32),output_shapes=(None,None))
-train_objectness_dataset3 = tf.data.Dataset.from_generator(lambda: train_objectnesses[3], output_types=(tf.float32),output_shapes=(None,None))
-train_objectness_dataset4 = tf.data.Dataset.from_generator(lambda: train_objectnesses[4], output_types=(tf.float32),output_shapes=(None,None))
+train_objectnesses = [[sample[i]
+                       for sample in train_objectnesses] for i in range(5)]
+val_objectnesses = [[sample[i]
+                     for sample in val_objectnesses] for i in range(5)]
+# flips the dimension so the first dimension is the size and the second the sample
 
-val_objectness_dataset0 = tf.data.Dataset.from_generator(lambda: val_objectnesses[0], output_types=(tf.float32),output_shapes=(None,None))
-val_objectness_dataset1 = tf.data.Dataset.from_generator(lambda: val_objectnesses[1], output_types=(tf.float32),output_shapes=(None,None))
-val_objectness_dataset2 = tf.data.Dataset.from_generator(lambda: val_objectnesses[2], output_types=(tf.float32),output_shapes=(None,None))
-val_objectness_dataset3 = tf.data.Dataset.from_generator(lambda: val_objectnesses[3], output_types=(tf.float32),output_shapes=(None,None))
-val_objectness_dataset4 = tf.data.Dataset.from_generator(lambda: val_objectnesses[4], output_types=(tf.float32),output_shapes=(None,None))
 del all_objectnesses
 
+train_objectness_dataset0 = tf.data.Dataset.from_generator(
+    lambda: train_objectnesses[0], output_types=(tf.float32), output_shapes=(None, None))
+train_objectness_dataset1 = tf.data.Dataset.from_generator(
+    lambda: train_objectnesses[1], output_types=(tf.float32), output_shapes=(None, None))
+train_objectness_dataset2 = tf.data.Dataset.from_generator(
+    lambda: train_objectnesses[2], output_types=(tf.float32), output_shapes=(None, None))
+train_objectness_dataset3 = tf.data.Dataset.from_generator(
+    lambda: train_objectnesses[3], output_types=(tf.float32), output_shapes=(None, None))
+train_objectness_dataset4 = tf.data.Dataset.from_generator(
+    lambda: train_objectnesses[4], output_types=(tf.float32), output_shapes=(None, None))
 
-all_imgs_np = np.load('imgs_train.npy', allow_pickle=True)
+val_objectness_dataset0 = tf.data.Dataset.from_generator(
+    lambda: val_objectnesses[0], output_types=(tf.float32), output_shapes=(None, None))
+val_objectness_dataset1 = tf.data.Dataset.from_generator(
+    lambda: val_objectnesses[1], output_types=(tf.float32), output_shapes=(None, None))
+val_objectness_dataset2 = tf.data.Dataset.from_generator(
+    lambda: val_objectnesses[2], output_types=(tf.float32), output_shapes=(None, None))
+val_objectness_dataset3 = tf.data.Dataset.from_generator(
+    lambda: val_objectnesses[3], output_types=(tf.float32), output_shapes=(None, None))
+val_objectness_dataset4 = tf.data.Dataset.from_generator(
+    lambda: val_objectnesses[4], output_types=(tf.float32), output_shapes=(None, None))
+
+all_imgs_np = np.load('Data/imgs_train.npy', allow_pickle=True)
 train_imgs_np = all_imgs_np[:train_size]
 val_imgs_np = all_imgs_np[train_size:]
 train_imgs_dataset = tf.data.Dataset.from_generator(
@@ -128,61 +141,73 @@ val_imgs_dataset = tf.data.Dataset.from_generator(
 
 
 train_dataset = tf.data.Dataset.zip(
-    (train_imgs_dataset, train_objectness_dataset0,train_objectness_dataset1,train_objectness_dataset2,train_objectness_dataset3,train_objectness_dataset4))
-
+    (train_imgs_dataset, train_objectness_dataset0, train_objectness_dataset1, train_objectness_dataset2, train_objectness_dataset3, train_objectness_dataset4))
 train_dataset = train_dataset.batch(1)
+
 val_dataset = tf.data.Dataset.zip(
-    (val_imgs_dataset, val_objectness_dataset0,val_objectness_dataset1,val_objectness_dataset2,val_objectness_dataset3,val_objectness_dataset4))
+    (val_imgs_dataset, val_objectness_dataset0, val_objectness_dataset1, val_objectness_dataset2, val_objectness_dataset3, val_objectness_dataset4))
 val_dataset = val_dataset.batch(1)
 
 print('finished')
 
-@tf.function
-def loss_binary_crossentropy(pred0, pred1, pred2, pred3, pred4, label0,label1,label2,label3,label4):
-    bce = tf.keras.losses.BinaryCrossentropy(
-        reduction=tf.keras.losses.Reduction.SUM)
-    lossSum = bce(pred0[:,:,:,0],label0)
-    lossSum += bce(pred1[:,:,:,0],label1)
-    lossSum += bce(pred2[:,:,:,0],label2)
-    lossSum += bce(pred3[:,:,:,0],label3)
-    lossSum += bce(pred4[:,:,:,0],label4)
+adamOptimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+bceLoss = tf.keras.losses.BinaryCrossentropy(
+    reduction=tf.keras.losses.Reduction.SUM)
+
+
+@tf.function # need dimension optimization
+def loss_binary_crossentropy(pred0, pred1, pred2, pred3, pred4, label0, label1, label2, label3, label4):
+    lossSum = bceLoss(pred0[:, :, :, 0], label0)
+    lossSum += bceLoss(pred1[:, :, :, 0], label1)
+    lossSum += bceLoss(pred2[:, :, :, 0], label2)
+    lossSum += bceLoss(pred3[:, :, :, 0], label3)
+    lossSum += bceLoss(pred4[:, :, :, 0], label4)
     return lossSum
 
-@tf.function(input_signature=[tf.TensorSpec(shape=(None,None,None,1), dtype=tf.float32),tf.TensorSpec(shape=(None,None,None), dtype=tf.float32),tf.TensorSpec(shape=(None,None,None), dtype=tf.float32),tf.TensorSpec(shape=(None,None,None), dtype=tf.float32),tf.TensorSpec(shape=(None,None,None), dtype=tf.float32),tf.TensorSpec(shape=(None,None,None), dtype=tf.float32),])
-def train_step(img, label0,label1,label2,label3,label4, optimizer):
-    st = time.time()
+
+@tf.function(input_signature=[tf.TensorSpec(shape=(None, None, None, 3), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32)])
+def train_step(img, label0, label1, label2, label3, label4):
     with tf.GradientTape() as tape:
         # training=True is only needed if there are layers with different
         # behavior during training versus inference (e.g. Dropout).
         objectnesses = ProposerModel(img, training=True)
-        obt = time.time()
-        loss = loss_binary_crossentropy(*objectnesses, label0,label1,label2,label3,label4)
+        loss = loss_binary_crossentropy(
+            *objectnesses, label0, label1, label2, label3, label4)
         # first_dim of label_objectnesses is batchsize
-    el = time.time()
     gradients = tape.gradient(loss, ProposerModel.trainable_variables)
-    gett = time.time()
-    optimizer.apply_gradients(
+    adamOptimizer.apply_gradients(
         zip(gradients, ProposerModel.trainable_variables))
-    aplT = time.time()
-    sys.stdout.write("time: %f, %f, %f, %f\r" % (obt-st,el-obt,gett-el,aplT-gett))
+
+
+lossAvg = 0
+for i, val_data in enumerate(val_dataset):
+    objectnesses = ProposerModel(val_data[0])
+    loss = loss_binary_crossentropy(*objectnesses, *val_data[1:])
+    lossAvg = (lossAvg*i+loss)/(i+1)
+    sys.stdout.write("evaluating: %d/%d" %
+                         (i, val_size))
     sys.stdout.flush()
+print(f'initial loss value is {lossAvg}')
 
-
-adamOptimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
 Epoch = 1
 for epoch in range(Epoch):
     print(f'training epoch {epoch+1}...')
     for i, train_data in enumerate(train_dataset):
         # sys.stdout.write("training: %d/%d\r" % (i,train_size))
         # sys.stdout.flush()
-        print(*train_data)
-        train_step(*train_data, adamOptimizer)
+        st = time.time()
+        train_step(*train_data)
+        #print(train_data[0].shape, train_data[1].shape)
+        sys.stdout.write("training: %d/%d    time per batch: %f \r" %
+                         (i, train_size, time.time()-st))
+        sys.stdout.flush()
     lossAvg = 0
-    for i,val_data in enumerate(val_dataset):
-        img, label_objectnesses = val_data
-        objectnesses = ProposerModel(img)
-        loss = loss_binary_crossentropy(objectnesses, label_objectnesses[0])
-        lossAvg=(lossAvg*i+loss)/(i+1)
+    for i, val_data in enumerate(val_dataset):
+        objectnesses = ProposerModel(val_data[0])
+        loss = loss_binary_crossentropy(*objectnesses, *val_data[1:])
+        lossAvg = (lossAvg*i+loss)/(i+1)
+        sys.stdout.write("evaluating: %d/%d" %
+                         (i, val_size))
+        sys.stdout.flush()
     print(f'epoch {epoch+1} is finished')
     print(f'loss value is {lossAvg}')
-
