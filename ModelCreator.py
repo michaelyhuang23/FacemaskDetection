@@ -59,7 +59,7 @@ class PixelRPN(Model):
         # use resnet connection here to optimize gradient flow
         self.classifier2 = Conv2D(96, (1, 1), activation='relu')
         self.batch_norm_classify2 = BatchNormalization()
-        self.classifier3 = Conv2D(1, (1, 1), activation='sigmoid')
+        self.classifier3 = Conv2D(1, (1, 1), activation='linear')
 
     def call(self, input_tensor, training=False):
         features = self.conv2d_condense1(input_tensor)
