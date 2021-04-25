@@ -13,7 +13,8 @@ train_dataset, val_dataset, train_size, val_size = read_data(
 
 adamOptimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
 bceLoss = tf.nn.weighted_cross_entropy_with_logits
-metricAcc = tf.keras.metrics.BinaryAccuracy()
+metricFalsePos = tf.keras.metrics.FalsePositives()
+metricFalseNeg = tf.keras.metrics.FalseNegatives()
 loss_positive_scale = 340.0
 
 
@@ -34,11 +35,17 @@ def loss_binary_crossentropy(pred0, pred1, pred2, pred3, pred4, label0, label1, 
 
 @tf.function(input_signature=[tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32)])
 def metric_binary_acc(pred0, pred1, pred2, pred3, pred4, label0, label1, label2, label3, label4):
-    metricAcc.update_state(label0, tf.math.sigmoid(pred0[:, :, :, 0]))
-    metricAcc.update_state(label1, tf.math.sigmoid(pred1[:, :, :, 0]))
-    metricAcc.update_state(label2, tf.math.sigmoid(pred2[:, :, :, 0]))
-    metricAcc.update_state(label3, tf.math.sigmoid(pred3[:, :, :, 0]))
-    metricAcc.update_state(label4, tf.math.sigmoid(pred4[:, :, :, 0]))
+    metricFalsePos.update_state(label0, tf.math.sigmoid(pred0[:, :, :, 0]))
+    metricFalsePos.update_state(label1, tf.math.sigmoid(pred1[:, :, :, 0]))
+    metricFalsePos.update_state(label2, tf.math.sigmoid(pred2[:, :, :, 0]))
+    metricFalsePos.update_state(label3, tf.math.sigmoid(pred3[:, :, :, 0]))
+    metricFalsePos.update_state(label4, tf.math.sigmoid(pred4[:, :, :, 0]))
+
+    metricFalseNeg.update_state(label0, tf.math.sigmoid(pred0[:, :, :, 0]))
+    metricFalseNeg.update_state(label1, tf.math.sigmoid(pred1[:, :, :, 0]))
+    metricFalseNeg.update_state(label2, tf.math.sigmoid(pred2[:, :, :, 0]))
+    metricFalseNeg.update_state(label3, tf.math.sigmoid(pred3[:, :, :, 0]))
+    metricFalseNeg.update_state(label4, tf.math.sigmoid(pred4[:, :, :, 0]))
 
 
 @tf.function(input_signature=[tf.TensorSpec(shape=(None, None, None, 3), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32)])
@@ -53,7 +60,7 @@ def train_step(img, label0, label1, label2, label3, label4):
     gradients = tape.gradient(loss, ProposerModel.trainable_variables)
     adamOptimizer.apply_gradients(
         zip(gradients, ProposerModel.trainable_variables))
-
+    return loss
 
 @tf.function(input_signature=[tf.TensorSpec(shape=(None, None, None, 3), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32)])
 def eval_step(img, label0, label1, label2, label3, label4):
@@ -66,32 +73,42 @@ def eval_step(img, label0, label1, label2, label3, label4):
 
 def eval(dataset, size):
     lossAvg = 0
-    metricAcc.reset_states()
+    metricFalsePos.reset_states()
+    metricFalseNeg.reset_states()
+    total_elem_count = 0
     for i, data in enumerate(dataset):
         st = time.time()
-        loss = eval_step(*data)
+        img, label0, label1, label2, label3, label4 = data
+        loss = eval_step(img, label0, label1, label2, label3, label4)
+        total_elem_count += tf.size(label0) + tf.size(label1) + \
+            tf.size(label2) + tf.size(label3) + tf.size(label4)
         lossAvg = (lossAvg*i+loss)/(i+1)
-        sys.stdout.write("evaluating: %d/%d    time per batch: %f \r" %
-                         (i, size, time.time()-st))
+        sys.stdout.write("evaluating: %d/%d;  eval loss is: %f;  time per batch: %f \r" %
+                         (i, size, lossAvg,time.time()-st))
         sys.stdout.flush()
-    return lossAvg, metricAcc.result()
+    total_elem_count = tf.cast(total_elem_count,tf.float32)
+    return lossAvg, 1-metricFalsePos.result()/total_elem_count, 1-metricFalseNeg.result()/total_elem_count
 
 
-loss, acc = eval(val_dataset, val_size)
+loss, posAcc, negAcc = eval(val_dataset, val_size)
 print()
 print(f'initial loss is {loss}')
-print(f'initial acc is {acc}')
+print(f'initial positive acc is {posAcc}')
+print(f'initial negative acc is {negAcc}')
 
 Epoch = 5
 for epoch in range(Epoch):
     print(f'training epoch {epoch+1}...')
+    lossAvg = 0
     for i, train_data in enumerate(train_dataset):
         st = time.time()
-        train_step(*train_data)
-        sys.stdout.write("training: %d/%d    time per batch: %f \r" %
-                         (i, train_size, time.time()-st))
+        loss = train_step(*train_data)
+        lossAvg = (lossAvg*i + loss)/(i+1)
+        sys.stdout.write("training: %d/%d; train loss is: %f; time per batch: %f \r" %
+                         (i, train_size, lossAvg,time.time()-st))
         sys.stdout.flush()
     print(f'epoch {epoch+1} is finished')
-    loss, acc = eval(val_dataset, val_size)
+    loss, posAcc, negAcc = eval(val_dataset, val_size)
     print(f'loss is {loss}')
-    print(f'acc is {acc}')
+    print(f'positive acc is {posAcc}')
+    print(f'negative acc is {negAcc}')
