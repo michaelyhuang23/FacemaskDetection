@@ -16,7 +16,9 @@ bceLoss = tf.nn.weighted_cross_entropy_with_logits
 metricFalsePos = tf.keras.metrics.FalsePositives()
 metricFalseNeg = tf.keras.metrics.FalseNegatives()
 loss_positive_scale = 340.0 * 3
-
+# this loss_positive_scale controls the trade off between positive acc and negative acc
+# 340 is baseline because it's the ratio of actual positive to all data
+# (thus almost the ratio of actual positives to actual negatives)
 
 @tf.function(input_signature=[tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32)])
 def loss_binary_crossentropy(pred0, pred1, pred2, pred3, pred4, label0, label1, label2, label3, label4):
