@@ -1,13 +1,12 @@
 import tensorflow as tf
 import time
 
-a=tf.random.uniform((1,2,3,4))
-b= tf.zeros((1,2,3,4))
-metricAcc = tf.keras.metrics.BinaryAccuracy()
+a = tf.data.Dataset.range(1,4)
+b = tf.data.Dataset.range(4,7)
+c = tf.data.Dataset.range(7,10)
 
-print(a)
-print(b)
+d = tf.data.Dataset.zip((a,b))
 
-metricAcc.update_state(b, a)
+e = tf.data.Dataset.zip((c,*d))
 
-print(metricAcc.result())
+print(list(e.as_numpy_iterator()))
