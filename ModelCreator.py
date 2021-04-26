@@ -2,7 +2,7 @@
 # coding: utf-8
 
 import tensorflow as tf
-from tensorflow.keras.layers import Dense, Flatten, Conv2D, BatchNormalization, MaxPooling2D, Input
+from tensorflow.keras.layers import Dense, Flatten, Conv2D, BatchNormalization, MaxPooling2D, Input, Dropout
 from tensorflow.keras import Model
 from tensorflow.keras.applications import InceptionV3
 
@@ -11,11 +11,12 @@ class PixelRPN(Model):
     def __init__(self):
         super(PixelRPN, self).__init__()
         # input size is about 17*17*768 but larger
+        self.dropout_condense1 = Dropout(0.5)
         self.conv2d_condense1 = Conv2D(
-            384, (1, 1), padding='same', activation='relu')
+            288, (1, 1), padding='same', activation='relu')
         self.batch_norm1 = BatchNormalization()
         # if we set this number too small, it creates information bottleneck
-        # if it's high, we cannot use resnet connection
+        self.dropout_condense2 = Dropout(0.5)
         self.conv2d_condense2 = Conv2D(
             96, (1, 1), padding='same', activation='relu')
         self.batch_norm2 = BatchNormalization()
@@ -25,45 +26,66 @@ class PixelRPN(Model):
         self.conv2d_extract2a = Conv2D(
             96, (2, 2), padding='valid', activation='relu')
         self.batch_norm_extract2a = BatchNormalization()
-        self.conv2d_extract2b = Conv2D(96, (1, 1), activation='relu')
+        self.conv2d_extract2b = Conv2D(96, (3,3), padding='same', activation='relu')
         self.batch_norm_extract2b = BatchNormalization()
+        self.dropout_extract2 = Dropout(0.35)
+        self.conv2d_extract2c = Conv2D(96, (1, 1), activation='relu')
+        self.batch_norm_extract2c = BatchNormalization()
 
         self.conv2d_extract3a = Conv2D(
             96, (3, 3), padding='valid', activation='relu')
         self.batch_norm_extract3a = BatchNormalization()
-        self.conv2d_extract3b = Conv2D(96, (1, 1), activation='relu')
+        self.conv2d_extract3b = Conv2D(96, (3,3), padding='same', activation='relu')
         self.batch_norm_extract3b = BatchNormalization()
+        self.dropout_extract3 = Dropout(0.35)
+        self.conv2d_extract3c = Conv2D(96, (1, 1), activation='relu')
+        self.batch_norm_extract3c = BatchNormalization()
 
         self.conv2d_extract5a = Conv2D(96, (5, 5), strides=(
             2, 2), padding='valid', activation='relu')
         self.batch_norm_extract5a = BatchNormalization()
-        self.conv2d_extract5b = Conv2D(96, (1, 1), activation='relu')
+        self.conv2d_extract5b = Conv2D(96, (3,3), padding='same', activation='relu')
         self.batch_norm_extract5b = BatchNormalization()
+        self.dropout_extract5 = Dropout(0.35)
+        self.conv2d_extract5c = Conv2D(96, (1, 1), activation='relu')
+        self.batch_norm_extract5c = BatchNormalization()
 
         self.conv2d_extract8a = Conv2D(96, (8, 8), strides=(
             3, 3), padding='valid', activation='relu')
         self.batch_norm_extract8a = BatchNormalization()
-        self.conv2d_extract8b = Conv2D(96, (1, 1), activation='relu')
+        self.conv2d_extract8b = Conv2D(96, (3,3), padding='same', activation='relu')
         self.batch_norm_extract8b = BatchNormalization()
+        self.dropout_extract8 = Dropout(0.35)
+        self.conv2d_extract8c = Conv2D(96, (1, 1), activation='relu')
+        self.batch_norm_extract8c = BatchNormalization()
 
         self.conv2d_extract12a = Conv2D(
             96, (12, 12), strides=(5, 5), activation='relu')
         self.batch_norm_extract12a = BatchNormalization()
-        self.conv2d_extract12b = Conv2D(96, (1, 1), activation='relu')
+        self.conv2d_extract12b = Conv2D(96, (3,3), padding='same', activation='relu')
         self.batch_norm_extract12b = BatchNormalization()
+        self.dropout_extract12 = Dropout(0.35)
+        self.conv2d_extract12c = Conv2D(96, (1, 1), activation='relu')
+        self.batch_norm_extract12c = BatchNormalization()
 
         # we need better gradient flow
-
-        self.classifier1 = Conv2D(96, (1, 1), activation='relu')
+        self.classifier1 = Conv2D(96, (3, 3), activation='relu', padding='same')
         self.batch_norm_classify1 = BatchNormalization()
+        self.dropout_classify2 = Dropout(0.3)
+        self.dropout_classify3 = Dropout(0.3)
+        self.dropout_classify5 = Dropout(0.3)
+        self.dropout_classify8 = Dropout(0.3)
+        self.dropout_classify12 = Dropout(0.3)
         # use resnet connection here to optimize gradient flow
         self.classifier2 = Conv2D(96, (1, 1), activation='relu')
         self.batch_norm_classify2 = BatchNormalization()
         self.classifier3 = Conv2D(1, (1, 1), activation='linear')
 
     def call(self, input_tensor, training=False):
-        features = self.conv2d_condense1(input_tensor)
+        features = self.dropout_condense1(input_tensor)
+        features = self.conv2d_condense1(features)
         features = self.batch_norm1(features)
+        features = self.dropout_condense2(features)
         features = self.conv2d_condense2(features)
         features = self.batch_norm2(features)
 
@@ -71,61 +93,81 @@ class PixelRPN(Model):
         extract2 = self.batch_norm_extract2a(extract2)
         extract2 = self.conv2d_extract2b(extract2)
         extract2 = self.batch_norm_extract2b(extract2)
+        extract2 = self.dropout_extract2(extract2)
+        extract2 = self.conv2d_extract2c(extract2)
+        extract2 = self.batch_norm_extract2c(extract2)
 
         extract3 = self.conv2d_extract3a(features)
         extract3 = self.batch_norm_extract3a(extract3)
         extract3 = self.conv2d_extract3b(extract3)
         extract3 = self.batch_norm_extract3b(extract3)
+        extract3 = self.dropout_extract3(extract3)
+        extract3 = self.conv2d_extract3c(extract3)
+        extract3 = self.batch_norm_extract3c(extract3)
 
         extract5 = self.conv2d_extract5a(features)
         extract5 = self.batch_norm_extract5a(extract5)
         extract5 = self.conv2d_extract5b(extract5)
         extract5 = self.batch_norm_extract5b(extract5)
+        extract5 = self.dropout_extract5(extract5)
+        extract5 = self.conv2d_extract5c(extract5)
+        extract5 = self.batch_norm_extract5c(extract5)
 
         extract8 = self.conv2d_extract8a(features)
         extract8 = self.batch_norm_extract8a(extract8)
         extract8 = self.conv2d_extract8b(extract8)
         extract8 = self.batch_norm_extract8b(extract8)
+        extract8 = self.dropout_extract8(extract8)
+        extract8 = self.conv2d_extract8c(extract8)
+        extract8 = self.batch_norm_extract8c(extract8)
 
         extract12 = self.conv2d_extract12a(features)
         extract12 = self.batch_norm_extract12a(extract12)
         extract12 = self.conv2d_extract12b(extract12)
         extract12 = self.batch_norm_extract12b(extract12)
+        extract12 = self.dropout_extract12(extract12)
+        extract12 = self.conv2d_extract12c(extract12)
+        extract12 = self.batch_norm_extract12c(extract12)
 
         extract2New = self.classifier1(extract2)
         extract2New = self.batch_norm_classify1(extract2New)
+        extract2New += extract2
+        extract2New = self.dropout_classify2(extract2New)
         extract2New = self.classifier2(extract2New)
         extract2New = self.batch_norm_classify2(extract2New)
-        extract2 = extract2 + extract2New
-        extract2 = self.classifier3(extract2)
+        extract2 = self.classifier3(extract2New)
 
         extract3New = self.classifier1(extract3)
         extract3New = self.batch_norm_classify1(extract3New)
+        extract3New += extract3
+        extract3New = self.dropout_classify3(extract3New)
         extract3New = self.classifier2(extract3New)
         extract3New = self.batch_norm_classify2(extract3New)
-        extract3 = extract3 + extract3New
-        extract3 = self.classifier3(extract3)
+        extract3 = self.classifier3(extract3New)
 
         extract5New = self.classifier1(extract5)
         extract5New = self.batch_norm_classify1(extract5New)
+        extract5New += extract5
+        extract5New = self.dropout_classify5(extract5New)
         extract5New = self.classifier2(extract5New)
         extract5New = self.batch_norm_classify2(extract5New)
-        extract5 = extract5 + extract5New
-        extract5 = self.classifier3(extract5)
+        extract5 = self.classifier3(extract5New)
 
         extract8New = self.classifier1(extract8)
         extract8New = self.batch_norm_classify1(extract8New)
+        extract8New += extract8
+        extract8New = self.dropout_classify8(extract8New)
         extract8New = self.classifier2(extract8New)
         extract8New = self.batch_norm_classify2(extract8New)
-        extract8 = extract8 + extract8New
-        extract8 = self.classifier3(extract8)
+        extract8 = self.classifier3(extract8New)
 
         extract12New = self.classifier1(extract12)
         extract12New = self.batch_norm_classify1(extract12New)
+        extract12New += extract12
+        extract12New = self.dropout_classify12(extract12New)
         extract12New = self.classifier2(extract12New)
         extract12New = self.batch_norm_classify2(extract12New)
-        extract12 = extract12 + extract12New
-        extract12 = self.classifier3(extract12)
+        extract12 = self.classifier3(extract12New)
         # if we consider each pixel as an region proposal
         # there's at least 775 regions proposed for a single image
         return [extract2,extract3,extract5,extract8,extract12]
