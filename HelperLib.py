@@ -10,13 +10,13 @@ def calc_3(input_size):
     return input_size-2
 
 def calc_5(input_size):
-    return (input_size-5)//2+1
+    return (((input_size-1)//2+1)-3)//1+1
 
 def calc_8(input_size):
-    return (input_size-8)//3+1
+    return (((input_size-1)//2+1)-3)//2+1
 
 def calc_12(input_size):
-    return (input_size-12)//5+1
+    return (((input_size-1)//2+1)-6)//3+1
 
 def calc_preprocessor_output_size(input_size):
     return (((((((((input_size-3)//2+1)-2)-3)//2+1)-2)-3)//2+1)-3)//2+1

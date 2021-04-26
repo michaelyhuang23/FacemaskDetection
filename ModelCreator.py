@@ -13,7 +13,7 @@ class PixelRPN(Model):
         # input size is about 17*17*768 but larger
         self.dropout_condense1 = Dropout(0.5)
         self.conv2d_condense1 = Conv2D(
-            288, (1, 1), padding='same', activation='relu')
+            192, (1, 1), padding='same', activation='relu')
         self.batch_norm1 = BatchNormalization()
         # if we set this number too small, it creates information bottleneck
         self.dropout_condense2 = Dropout(0.5)
@@ -24,45 +24,45 @@ class PixelRPN(Model):
         # so every single feature position has the potential to produce bounding box anywhere in the image
 
         self.conv2d_extract2a = Conv2D(
-            96, (2, 2), padding='valid', activation='relu')
+            96, (2, 2), padding='same', activation='relu')
         self.batch_norm_extract2a = BatchNormalization()
-        self.conv2d_extract2b = Conv2D(96, (3,3), padding='same', activation='relu')
+        self.conv2d_extract2b = Conv2D(96, (2,2), padding='valid', activation='relu')
         self.batch_norm_extract2b = BatchNormalization()
         self.dropout_extract2 = Dropout(0.35)
         self.conv2d_extract2c = Conv2D(96, (1, 1), activation='relu')
         self.batch_norm_extract2c = BatchNormalization()
 
         self.conv2d_extract3a = Conv2D(
-            96, (3, 3), padding='valid', activation='relu')
+            96, (2, 2), padding='same', activation='relu')
         self.batch_norm_extract3a = BatchNormalization()
-        self.conv2d_extract3b = Conv2D(96, (3,3), padding='same', activation='relu')
+        self.conv2d_extract3b = Conv2D(96, (3,3), padding='valid', activation='relu')
         self.batch_norm_extract3b = BatchNormalization()
         self.dropout_extract3 = Dropout(0.35)
         self.conv2d_extract3c = Conv2D(96, (1, 1), activation='relu')
         self.batch_norm_extract3c = BatchNormalization()
 
-        self.conv2d_extract5a = Conv2D(96, (5, 5), strides=(
-            2, 2), padding='valid', activation='relu')
+        self.conv2d_extract5a = Conv2D(96, (3, 3), strides=(
+            2, 2), padding='same', activation='relu')
         self.batch_norm_extract5a = BatchNormalization()
-        self.conv2d_extract5b = Conv2D(96, (3,3), padding='same', activation='relu')
+        self.conv2d_extract5b = Conv2D(96, (3,3), padding='valid', activation='relu')
         self.batch_norm_extract5b = BatchNormalization()
         self.dropout_extract5 = Dropout(0.35)
         self.conv2d_extract5c = Conv2D(96, (1, 1), activation='relu')
         self.batch_norm_extract5c = BatchNormalization()
 
-        self.conv2d_extract8a = Conv2D(96, (8, 8), strides=(
-            3, 3), padding='valid', activation='relu')
+        self.conv2d_extract8a = Conv2D(96, (3, 3), strides=(
+            2, 2), padding='same', activation='relu')
         self.batch_norm_extract8a = BatchNormalization()
-        self.conv2d_extract8b = Conv2D(96, (3,3), padding='same', activation='relu')
+        self.conv2d_extract8b = Conv2D(96, (3,3), strides=(2,2), padding='valid', activation='relu')
         self.batch_norm_extract8b = BatchNormalization()
         self.dropout_extract8 = Dropout(0.35)
         self.conv2d_extract8c = Conv2D(96, (1, 1), activation='relu')
         self.batch_norm_extract8c = BatchNormalization()
 
-        self.conv2d_extract12a = Conv2D(
-            96, (12, 12), strides=(5, 5), activation='relu')
+        self.conv2d_extract12a = Conv2D(96, (5,5), strides=(2,2), activation='relu', padding='same')
         self.batch_norm_extract12a = BatchNormalization()
-        self.conv2d_extract12b = Conv2D(96, (3,3), padding='same', activation='relu')
+        self.conv2d_extract12b = Conv2D(
+            96, (6, 6), strides=(3, 3), activation='relu')
         self.batch_norm_extract12b = BatchNormalization()
         self.dropout_extract12 = Dropout(0.35)
         self.conv2d_extract12c = Conv2D(96, (1, 1), activation='relu')
@@ -71,11 +71,11 @@ class PixelRPN(Model):
         # we need better gradient flow
         self.classifier1 = Conv2D(96, (3, 3), activation='relu', padding='same')
         self.batch_norm_classify1 = BatchNormalization()
-        self.dropout_classify2 = Dropout(0.3)
-        self.dropout_classify3 = Dropout(0.3)
-        self.dropout_classify5 = Dropout(0.3)
-        self.dropout_classify8 = Dropout(0.3)
-        self.dropout_classify12 = Dropout(0.3)
+        self.dropout_classify2 = Dropout(0.35)
+        self.dropout_classify3 = Dropout(0.35)
+        self.dropout_classify5 = Dropout(0.35)
+        self.dropout_classify8 = Dropout(0.35)
+        self.dropout_classify12 = Dropout(0.35)
         # use resnet connection here to optimize gradient flow
         self.classifier2 = Conv2D(96, (1, 1), activation='relu')
         self.batch_norm_classify2 = BatchNormalization()

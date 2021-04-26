@@ -11,11 +11,11 @@ ProposerModel = FullProposer()
 train_dataset, val_dataset, train_size, val_size = read_data(
     'Data/imgs_train.npy', 'Data/data_boxes_train.txt', 'Data/data_sizes_train.txt', 0.2)
 
-adamOptimizer = tf.keras.optimizers.Adam(learning_rate=0.0003)
+adamOptimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
 bceLoss = tf.nn.weighted_cross_entropy_with_logits
 metricFalsePos = tf.keras.metrics.FalsePositives()
 metricFalseNeg = tf.keras.metrics.FalseNegatives()
-loss_positive_scale = 340.0 * 3
+loss_positive_scale = 340.0 * 1.5
 # this loss_positive_scale controls the trade off between positive acc and negative acc
 # 340 is baseline because it's the ratio of actual positive to all data
 # (thus almost the ratio of actual positives to actual negatives)
@@ -106,7 +106,7 @@ print(f'initial loss is {loss}')
 print(f'initial positive acc is {posAcc}')
 print(f'initial negative acc is {negAcc}')
 
-Epoch = 5
+Epoch = 15
 for epoch in range(Epoch):
     print(f'training epoch {epoch+1}...')
     lossAvg = 0
