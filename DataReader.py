@@ -3,7 +3,7 @@ import tensorflow as tf
 import json
 from HelperLib import *
 
-def read_boxes(box_dir, size_dir, validation_split_rate):
+def read_boxes(box_dir, size_dir, validation_split_rate, IoU_threshold):
     with open(box_dir, 'r') as of:
         all_boxes = json.load(of)
     with open(size_dir, 'r') as of:
@@ -11,7 +11,7 @@ def read_boxes(box_dir, size_dir, validation_split_rate):
     total_size = len(all_boxes)
 
     def evaluate_objectness(r, c, r_size, c_size, box):
-        return get_IoU((c*c_size, r*r_size, (c+1)*c_size, (r+1)*r_size), box)+0.7
+        return get_IoU((c*c_size, r*r_size, (c+1)*c_size, (r+1)*r_size), box)+1-IoU_threshold
         # threshold of IoU is 0.3
 
     def boxes_to_losses(nrow, ncol, boxes):
@@ -102,10 +102,10 @@ def read_imgs(img_path, validation_split_rate):
     return train_imgs_dataset, val_imgs_dataset, train_size, total_size-train_size
 
 
-def read_data(img_path, box_path, size_path, val_split):
+def read_data(img_path, box_path, size_path, val_split, IoU_threshold):
     print('reading data and preprocessing...')
     train_box_datasets, val_box_datasets = read_boxes(
-        box_path, size_path, val_split)
+        box_path, size_path, val_split, IoU_threshold)
     train_img_dataset, val_img_dataset, train_size, val_size = read_imgs(img_path, val_split)
 
     train_dataset = tf.data.Dataset.zip(

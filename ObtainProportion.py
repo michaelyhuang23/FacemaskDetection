@@ -1,7 +1,7 @@
 from DataReader import read_data
 import tensorflow as tf
 
-train_dataset, val_dataset, train_size, val_size = read_data('Data/imgs_train.npy', 'Data/data_boxes_train.txt', 'Data/data_sizes_train.txt', 0.2)
+train_dataset, val_dataset, train_size, val_size = read_data('Data/imgs_train.npy', 'Data/data_boxes_train.txt', 'Data/data_sizes_train.txt', 0.2, 0.27)
 
 avgRoll = 0
 for i,train_data in enumerate(train_dataset):
@@ -13,4 +13,4 @@ for i,train_data in enumerate(train_dataset):
     prop4 = tf.cast(tf.math.count_nonzero(label4), tf.int32)/tf.size(label4)
     avgRoll=(avgRoll*i+(prop0+prop1+prop2+prop3+prop4)/5)/(i+1)
 
-print(avgRoll)
+print(1/avgRoll)

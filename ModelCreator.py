@@ -186,12 +186,23 @@ class FullProposer(Model):
             full_preprocessor.input, full_preprocessor.get_layer('mixed7').output)
         self.preprocessor.trainable = False
         self.proposer = PixelRPN()
+        self.block6_layer_counts = {'conv2d':10, 'batch_normalization':10, 'activation':10, 'average_pooling2d':1, 'mixed':1}
 
     def call(self, input_imgs, training=False):
         features = self.preprocessor(input_imgs)
         objectness = self.proposer(features)
         return objectness
 
+    def set_layers_trainability(self, trainable, block,layer_counts):
+        for name in layer_counts:
+            if layer_counts[name]==1:
+                if name=='mixed':
+                    self.preprocessor.get_layer(f'{name}{block+1}').trainable=trainable
+                else:
+                    self.preprocessor.get_layer(f'{name}_{block}').trainable=trainable
+            else:
+                for i in range(layer_counts[name]):
+                    self.preprocessor.get_layer(f'{name}_{block}{i}').trainable=trainable
 
 class RCNN(Model):
     @tf.function(input_signature=[tf.TensorSpec(shape=(3), dtype=tf.int64), tf.TensorSpec(shape=(), dtype=tf.int32)])
