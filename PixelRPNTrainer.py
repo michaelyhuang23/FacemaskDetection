@@ -13,31 +13,29 @@ train_dataset, val_dataset, train_size, val_size = read_data(
 
 adamOptimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
 bceLoss = tf.nn.weighted_cross_entropy_with_logits
-metricFalsePos = tf.keras.metrics.FalsePositives()
-metricFalseNeg = tf.keras.metrics.FalseNegatives()
+metricFalsePos = [tf.keras.metrics.FalsePositives() for i in range(5)]
+metricFalseNeg = [tf.keras.metrics.FalseNegatives() for i in range(5)]
 loss_positive_scale = 313.0 * 1.5
 # this loss_positive_scale controls the trade off between positive acc and negative acc
 # 340 is baseline because it's the ratio of actual positive to all data
 # (thus almost the ratio of actual positives to actual negatives)
 
 def count_elements(dataset):
-    elem_count = 0
-    positive_count = 0
+    elem_count = [0,0,0,0,0]
+    positive_count = [0,0,0,0,0]
     for data in dataset:
-        img, label0, label1, label2, label3, label4 = data
-        elem_count += tf.size(label0) + tf.size(label1) + \
-            tf.size(label2) + tf.size(label3) + tf.size(label4)
-        positive_count += tf.math.count_nonzero(label0) + tf.math.count_nonzero(
-            label1) + tf.math.count_nonzero(label2) + tf.math.count_nonzero(label3) + tf.math.count_nonzero(label4)
-    return positive_count,tf.cast(elem_count,tf.int64)-positive_count
+        img, *labels = data
+        elem_count = [tf.size(labels[i])+elem_count[i] for i in range(5)]
+        positive_count = [tf.math.count_nonzero(labels[i])+positive_count[i] for i in range(5)]
+    return positive_count,[tf.cast(elem_count[i],tf.int64)-positive_count[i] for i in range(5)]
 
 val_positive_count, val_negative_count = count_elements(val_dataset)
-val_positive_count = tf.cast(val_positive_count, tf.float32)
-val_negative_count = tf.cast(val_negative_count, tf.float32)
+val_positive_count = [tf.cast(val_positive_count[i], tf.float32) for i in range(5)]
+val_negative_count = [tf.cast(val_negative_count[i], tf.float32) for i in range(5)]
 
 train_positive_count, train_negative_count = count_elements(train_dataset)
-train_positive_count = tf.cast(train_positive_count, tf.float32)
-train_negative_count = tf.cast(train_negative_count, tf.float32)
+train_positive_count = [tf.cast(train_positive_count[i], tf.float32) for i in range(5)]
+train_negative_count = [tf.cast(train_negative_count[i], tf.float32) for i in range(5)]
 
 @tf.function(input_signature=[tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32)])
 def loss_binary_crossentropy(pred0, pred1, pred2, pred3, pred4, label0, label1, label2, label3, label4):
@@ -56,17 +54,17 @@ def loss_binary_crossentropy(pred0, pred1, pred2, pred3, pred4, label0, label1, 
 
 @tf.function(input_signature=[tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32)])
 def metric_binary_acc(pred0, pred1, pred2, pred3, pred4, label0, label1, label2, label3, label4):
-    metricFalsePos.update_state(label0, tf.math.sigmoid(pred0[:, :, :, 0]))
-    metricFalsePos.update_state(label1, tf.math.sigmoid(pred1[:, :, :, 0]))
-    metricFalsePos.update_state(label2, tf.math.sigmoid(pred2[:, :, :, 0]))
-    metricFalsePos.update_state(label3, tf.math.sigmoid(pred3[:, :, :, 0]))
-    metricFalsePos.update_state(label4, tf.math.sigmoid(pred4[:, :, :, 0]))
+    metricFalsePos[0].update_state(label0, tf.math.sigmoid(pred0[:, :, :, 0]))
+    metricFalsePos[1].update_state(label1, tf.math.sigmoid(pred1[:, :, :, 0]))
+    metricFalsePos[2].update_state(label2, tf.math.sigmoid(pred2[:, :, :, 0]))
+    metricFalsePos[3].update_state(label3, tf.math.sigmoid(pred3[:, :, :, 0]))
+    metricFalsePos[4].update_state(label4, tf.math.sigmoid(pred4[:, :, :, 0]))
 
-    metricFalseNeg.update_state(label0, tf.math.sigmoid(pred0[:, :, :, 0]))
-    metricFalseNeg.update_state(label1, tf.math.sigmoid(pred1[:, :, :, 0]))
-    metricFalseNeg.update_state(label2, tf.math.sigmoid(pred2[:, :, :, 0]))
-    metricFalseNeg.update_state(label3, tf.math.sigmoid(pred3[:, :, :, 0]))
-    metricFalseNeg.update_state(label4, tf.math.sigmoid(pred4[:, :, :, 0]))
+    metricFalseNeg[0].update_state(label0, tf.math.sigmoid(pred0[:, :, :, 0]))
+    metricFalseNeg[1].update_state(label1, tf.math.sigmoid(pred1[:, :, :, 0]))
+    metricFalseNeg[2].update_state(label2, tf.math.sigmoid(pred2[:, :, :, 0]))
+    metricFalseNeg[3].update_state(label3, tf.math.sigmoid(pred3[:, :, :, 0]))
+    metricFalseNeg[4].update_state(label4, tf.math.sigmoid(pred4[:, :, :, 0]))
 
 
 @tf.function(input_signature=[tf.TensorSpec(shape=(None, None, None, 3), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32)])
@@ -96,8 +94,9 @@ def eval_step(img, label0, label1, label2, label3, label4):
 
 def eval(dataset, size):
     lossAvg = 0
-    metricFalsePos.reset_states()
-    metricFalseNeg.reset_states()
+    for i in range(5):
+        metricFalsePos[i].reset_states()
+        metricFalseNeg[i].reset_states()
     for i, data in enumerate(dataset):
         st = time.time()
         img, label0, label1, label2, label3, label4 = data
@@ -106,7 +105,9 @@ def eval(dataset, size):
         sys.stdout.write("evaluating: %d/%d;  eval loss is: %f;  time per batch: %f \r" %
                          (i, size, lossAvg, time.time()-st))
         sys.stdout.flush()
-    return lossAvg, 1-metricFalsePos.result()/val_negative_count, 1-metricFalseNeg.result()/val_positive_count
+    neg_acc = [(1-metricFalsePos[i].result()/val_negative_count[i]).numpy() for i in range(5)]
+    pos_acc = [(1-metricFalseNeg[i].result()/val_positive_count[i]).numpy() for i in range(5)]
+    return lossAvg, neg_acc,pos_acc
 
 print('positive acc indicates the percent of actual positives it correctly predicted')
 print('negative acc indicates the percent of actual negatives it correctly predicted')
@@ -114,15 +115,16 @@ print('negative acc indicates the percent of actual negatives it correctly predi
 loss, negAcc, posAcc = eval(val_dataset, val_size)
 print()
 print(f'initial loss is {loss}')
-print(f'initial positive acc is {posAcc}')
-print(f'initial negative acc is {negAcc}')
+print('initial positive acc is',*posAcc)
+print('initial negative acc is',*negAcc)
 
 Epoch = 5
 for epoch in range(Epoch):
     print(f'training epoch {epoch+1}...')
     lossAvg = 0
-    metricFalsePos.reset_states()
-    metricFalseNeg.reset_states()
+    for i in range(5):
+        metricFalsePos[i].reset_states()
+        metricFalseNeg[i].reset_states()
     for i, train_data in enumerate(train_dataset):
         st = time.time()
         loss = train_step(*train_data)
@@ -131,24 +133,25 @@ for epoch in range(Epoch):
                          (i, train_size, lossAvg, time.time()-st))
         sys.stdout.flush()
     print(f'epoch {epoch+1} is finished')
-    posAcc = 1-metricFalseNeg.result()/train_positive_count
-    negAcc = 1-metricFalsePos.result()/train_negative_count
-    print(f'train positive acc is {posAcc}')
-    print(f'train negative acc is {negAcc}')
-    loss, negAcc, posAcc = eval(val_dataset, val_size)
+    neg_acc = [(1-metricFalsePos[i].result()/train_negative_count[i]).numpy() for i in range(5)]
+    pos_acc = [(1-metricFalseNeg[i].result()/train_positive_count[i]).numpy() for i in range(5)]
+    print('train positive acc is',*pos_acc)
+    print('train negative acc is',*neg_acc)
+    loss, neg_acc, pos_acc = eval(val_dataset, val_size)
     print(f'val loss is {loss}')
-    print(f'val positive acc is {posAcc}')
-    print(f'val negative acc is {negAcc}')
+    print('val positive acc is',*pos_acc)
+    print('val negative acc is',*neg_acc)
 
 
-Epoch = 5
+Epoch = 7
 ProposerModel.set_layers_trainability(True, 6,ProposerModel.block6_layer_counts)
-adamOptimizer.learning_rate = 1e-5
+adamOptimizer.learning_rate = 3*1e-5
 for epoch in range(Epoch):
     print(f'finetuning epoch {epoch+1}...')
     lossAvg = 0
-    metricFalsePos.reset_states()
-    metricFalseNeg.reset_states()
+    for i in range(5):
+        metricFalsePos[i].reset_states()
+        metricFalseNeg[i].reset_states()
     for i, train_data in enumerate(train_dataset):
         st = time.time()
         loss = train_step(*train_data)
@@ -157,11 +160,11 @@ for epoch in range(Epoch):
                          (i, train_size, lossAvg, time.time()-st))
         sys.stdout.flush()
     print(f'epoch {epoch+1} is finished')
-    posAcc = 1-metricFalseNeg.result()/train_positive_count
-    negAcc = 1-metricFalsePos.result()/train_negative_count
-    print(f'train positive acc is {posAcc}')
-    print(f'train negative acc is {negAcc}')
-    loss, negAcc, posAcc = eval(val_dataset, val_size)
+    neg_acc = [(1-metricFalsePos[i].result()/train_negative_count[i]).numpy() for i in range(5)]
+    pos_acc = [(1-metricFalseNeg[i].result()/train_positive_count[i]).numpy() for i in range(5)]
+    print('finetune positive acc is',*pos_acc)
+    print('finetune negative acc is',*neg_acc)
+    loss, neg_acc, pos_acc = eval(val_dataset, val_size)
     print(f'val loss is {loss}')
-    print(f'val positive acc is {posAcc}')
-    print(f'val negative acc is {negAcc}')
+    print('val positive acc is',*pos_acc)
+    print('val negative acc is',*neg_acc)
