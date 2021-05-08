@@ -9,13 +9,14 @@ import time
 ProposerModel = FullProposer()
 
 train_dataset, val_dataset, train_size, val_size = read_data(
-    'Data/imgs_train.npy', 'Data/data_boxes_train.txt', 'Data/data_sizes_train.txt', 0.2,0.27)
+    'Data/imgs_train.npy', 'Data/data_boxes_train.txt', 'Data/data_sizes_train.txt', 0.2,0.3)
 
 adamOptimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
 bceLoss = tf.nn.weighted_cross_entropy_with_logits
 metricFalsePos = [tf.keras.metrics.FalsePositives() for i in range(5)]
 metricFalseNeg = [tf.keras.metrics.FalseNegatives() for i in range(5)]
-loss_positive_scale = 313.0 * 1.5
+loss_positive_scale = 1.5
+case_proportions = [167.9082497540594, 148.22599203551056, 46.4583276642625, 25.943319182251948, 31.739572736520874]
 # this loss_positive_scale controls the trade off between positive acc and negative acc
 # 340 is baseline because it's the ratio of actual positive to all data
 # (thus almost the ratio of actual positives to actual negatives)
@@ -40,15 +41,15 @@ train_negative_count = [tf.cast(train_negative_count[i], tf.float32) for i in ra
 @tf.function(input_signature=[tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32), tf.TensorSpec(shape=(None, None, None), dtype=tf.float32)])
 def loss_binary_crossentropy(pred0, pred1, pred2, pred3, pred4, label0, label1, label2, label3, label4):
     lossSum = tf.reduce_sum(bceLoss(label0,
-                                    pred0[:, :, :, 0], loss_positive_scale))/tf.cast(tf.size(label0), tf.float32)
+                                    pred0[:, :, :, 0], loss_positive_scale*case_proportions[0]))/tf.cast(tf.size(label0), tf.float32)
     lossSum += tf.reduce_sum(bceLoss(label1, pred1[:, :, :, 0],
-                                     loss_positive_scale))/tf.cast(tf.size(label1), tf.float32)
+                                     loss_positive_scale*case_proportions[1]))/tf.cast(tf.size(label1), tf.float32)
     lossSum += tf.reduce_sum(bceLoss(label2, pred2[:, :, :, 0],
-                                     loss_positive_scale))/tf.cast(tf.size(label2), tf.float32)
+                                     loss_positive_scale*case_proportions[2]))/tf.cast(tf.size(label2), tf.float32)
     lossSum += tf.reduce_sum(bceLoss(label3, pred3[:, :, :, 0],
-                                     loss_positive_scale))/tf.cast(tf.size(label3), tf.float32)
+                                     loss_positive_scale*case_proportions[3]))/tf.cast(tf.size(label3), tf.float32)
     lossSum += tf.reduce_sum(bceLoss(label4, pred4[:, :, :, 0],
-                                     loss_positive_scale))/tf.cast(tf.size(label4), tf.float32)
+                                     loss_positive_scale*case_proportions[4]))/tf.cast(tf.size(label4), tf.float32)
     return lossSum
 
 
@@ -117,8 +118,9 @@ print()
 print(f'initial loss is {loss}')
 print('initial positive acc is',*posAcc)
 print('initial negative acc is',*negAcc)
-
-Epoch = 5
+train_losses = []
+train_val_losses = []
+Epoch = 15
 for epoch in range(Epoch):
     print(f'training epoch {epoch+1}...')
     lossAvg = 0
@@ -132,20 +134,25 @@ for epoch in range(Epoch):
         sys.stdout.write("training: %d/%d; train loss is: %f; time per batch: %f \r" %
                          (i, train_size, lossAvg, time.time()-st))
         sys.stdout.flush()
+    train_losses.append(lossAvg)
     print(f'epoch {epoch+1} is finished')
     neg_acc = [(1-metricFalsePos[i].result()/train_negative_count[i]).numpy() for i in range(5)]
     pos_acc = [(1-metricFalseNeg[i].result()/train_positive_count[i]).numpy() for i in range(5)]
     print('train positive acc is',*pos_acc)
     print('train negative acc is',*neg_acc)
     loss, neg_acc, pos_acc = eval(val_dataset, val_size)
+    train_val_losses.append(loss)
     print(f'val loss is {loss}')
     print('val positive acc is',*pos_acc)
     print('val negative acc is',*neg_acc)
 
 
-Epoch = 7
+Epoch = 15
 ProposerModel.set_layers_trainability(True, 6,ProposerModel.block6_layer_counts)
 adamOptimizer.learning_rate = 3*1e-5
+finetune_losses = []
+finetune_val_losses = []
+
 for epoch in range(Epoch):
     print(f'finetuning epoch {epoch+1}...')
     lossAvg = 0
@@ -159,12 +166,15 @@ for epoch in range(Epoch):
         sys.stdout.write("finetuning: %d/%d; train loss is: %f; time per batch: %f \r" %
                          (i, train_size, lossAvg, time.time()-st))
         sys.stdout.flush()
+    finetune_losses.append(lossAvg)
     print(f'epoch {epoch+1} is finished')
     neg_acc = [(1-metricFalsePos[i].result()/train_negative_count[i]).numpy() for i in range(5)]
     pos_acc = [(1-metricFalseNeg[i].result()/train_positive_count[i]).numpy() for i in range(5)]
     print('finetune positive acc is',*pos_acc)
     print('finetune negative acc is',*neg_acc)
     loss, neg_acc, pos_acc = eval(val_dataset, val_size)
+    finetune_val_losses.append(loss)
     print(f'val loss is {loss}')
     print('val positive acc is',*pos_acc)
     print('val negative acc is',*neg_acc)
+

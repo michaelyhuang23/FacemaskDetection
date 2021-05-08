@@ -24,11 +24,11 @@ def read_boxes(box_dir, size_dir, validation_split_rate, IoU_threshold):
         for i, box in enumerate(boxes):
             maxVal = 0
             objectness_list = []
-            for j, size in enumerate([2, 3, 5, 8, 12]):
+            for j in range(5):
                 rsize = calc_func[j](frow)
                 csize = calc_func[j](fcol)
                 objectness = np.fromfunction(evaluate_objectness, (rsize, csize),
-                                             r_size=size*nrow/rsize, c_size=size*ncol/csize, box=box)
+                                             r_size=nrow/rsize, c_size=ncol/csize, box=box)
                 objectness_list.append(objectness)
                 maxVal = max(maxVal, np.max(objectness))
             if maxVal < 1:
@@ -46,7 +46,8 @@ def read_boxes(box_dir, size_dir, validation_split_rate, IoU_threshold):
     all_objectnesses = []
 
     for i in range(total_size):
-        all_objectnesses.append(boxes_to_losses(*all_sizes[i], all_boxes[i]))
+        ret = boxes_to_losses(*all_sizes[i], all_boxes[i])
+        all_objectnesses.append(ret)
 
     train_size = int(total_size*(1-validation_split_rate))
     val_size = total_size-train_size

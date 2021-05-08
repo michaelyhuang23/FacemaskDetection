@@ -27,3 +27,4 @@ def get_IoU(boxes1, boxes2):
     interArea = get_area(boxInter)
     unionArea = get_area(boxes1)+get_area(boxes2)-get_area(boxInter)
     return interArea/unionArea
+
