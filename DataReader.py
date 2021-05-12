@@ -112,9 +112,11 @@ def read_data(img_path, box_path, size_path, val_split, IoU_threshold):
     train_dataset = tf.data.Dataset.zip(
         (train_img_dataset, *train_box_datasets))
     train_dataset = train_dataset.batch(1)
+    train_dataset = train_dataset.prefetch(5)
     val_dataset = tf.data.Dataset.zip(
         (val_img_dataset, *val_box_datasets))
     val_dataset = val_dataset.batch(1)
+    val_dataset = val_dataset.prefetch(5)
     print('finished')
     return train_dataset, val_dataset, train_size, val_size
 

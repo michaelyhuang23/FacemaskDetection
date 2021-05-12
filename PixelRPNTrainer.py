@@ -113,9 +113,9 @@ def eval(dataset, size):
 print('positive acc indicates the percent of actual positives it correctly predicted')
 print('negative acc indicates the percent of actual negatives it correctly predicted')
 
-loss, negAcc, posAcc = eval(val_dataset, val_size)
+min_loss, negAcc, posAcc = eval(val_dataset, val_size)
 print()
-print(f'initial loss is {loss}')
+print(f'initial loss is {min_loss}')
 print('initial positive acc is',*posAcc)
 print('initial negative acc is',*negAcc)
 train_losses = []
@@ -145,6 +145,9 @@ for epoch in range(Epoch):
     print(f'val loss is {loss}')
     print('val positive acc is',*pos_acc)
     print('val negative acc is',*neg_acc)
+    if loss<min_loss:
+        ProposerModel.save_weights("models/PixelRPN_train_weights/")
+
 
 
 Epoch = 15
@@ -177,4 +180,6 @@ for epoch in range(Epoch):
     print(f'val loss is {loss}')
     print('val positive acc is',*pos_acc)
     print('val negative acc is',*neg_acc)
+    if loss<min_loss:
+        ProposerModel.save_weights("models/PixelRPN_train_weights/")
 
