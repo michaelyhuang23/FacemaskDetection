@@ -11,7 +11,7 @@ ProposerModel = FullProposer()
 train_dataset, val_dataset, train_size, val_size = read_data(
     'Data/imgs_train.npy', 'Data/data_boxes_train.txt', 'Data/data_sizes_train.txt', 0.2,0.3)
 
-adamOptimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
+adamOptimizer = tf.keras.optimizers.Adam(learning_rate=3*1e-4)
 bceLoss = tf.nn.weighted_cross_entropy_with_logits
 metricFalsePos = [tf.keras.metrics.FalsePositives() for i in range(5)]
 metricFalseNeg = [tf.keras.metrics.FalseNegatives() for i in range(5)]
@@ -149,7 +149,7 @@ for epoch in range(Epoch):
 
 Epoch = 15
 ProposerModel.set_layers_trainability(True, 6,ProposerModel.block6_layer_counts)
-adamOptimizer.learning_rate = 3*1e-5
+adamOptimizer.learning_rate = 1e-4
 finetune_losses = []
 finetune_val_losses = []
 
