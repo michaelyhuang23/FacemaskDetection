@@ -1,5 +1,6 @@
 from ModelCreator import FullProposer
 from DataReader import read_data
+from HelperLib import count_elements
 import numpy as np
 import tensorflow as tf
 import json
@@ -20,15 +21,6 @@ case_proportions = [167.9082497540594, 148.22599203551056, 46.4583276642625, 25.
 # this loss_positive_scale controls the trade off between positive acc and negative acc
 # 340 is baseline because it's the ratio of actual positive to all data
 # (thus almost the ratio of actual positives to actual negatives)
-
-def count_elements(dataset):
-    elem_count = [0,0,0,0,0]
-    positive_count = [0,0,0,0,0]
-    for data in dataset:
-        img, *labels = data
-        elem_count = [tf.size(labels[i])+elem_count[i] for i in range(5)]
-        positive_count = [tf.math.count_nonzero(labels[i])+positive_count[i] for i in range(5)]
-    return positive_count,[tf.cast(elem_count[i],tf.int64)-positive_count[i] for i in range(5)]
 
 val_positive_count, val_negative_count = count_elements(val_dataset)
 val_positive_count = [tf.cast(val_positive_count[i], tf.float32) for i in range(5)]

@@ -102,6 +102,16 @@ def read_imgs(img_path, validation_split_rate):
         lambda: val_imgs_np, output_types=tf.float32, output_shapes=(None, None, 3))
     return train_imgs_dataset, val_imgs_dataset, train_size, total_size-train_size
 
+@tf.function
+def random_resize(img,*objectnesses):
+    rand_scale = tf.random.uniform(shape=[],minval=0.5,maxval=2)
+    target = (int(rand_scale*tf.shape(img)[0]),int(rand_scale*tf.shape(img)[1]))
+    new_img = tf.image.resize(img,size=target)
+    calc_func = [calc_2, calc_3, calc_5, calc_8, calc_12]
+    prep_row = calc_preprocessor_output_size(tf.shape(img)[0])
+    prep_col = calc_preprocessor_output_size(tf.shape(img)[1])
+    new_objectnesses = [tf.image.resize(obj,size=(calc_func[i](prep_row),calc_func[i](prep_col))) for i,obj in enumerate(objectnesses)]
+
 
 def read_data(img_path, box_path, size_path, val_split, IoU_threshold):
     print('reading data and preprocessing...')
@@ -111,10 +121,13 @@ def read_data(img_path, box_path, size_path, val_split, IoU_threshold):
 
     train_dataset = tf.data.Dataset.zip(
         (train_img_dataset, *train_box_datasets))
-    train_dataset = train_dataset.batch(1)
-    train_dataset = train_dataset.prefetch(5)
     val_dataset = tf.data.Dataset.zip(
         (val_img_dataset, *val_box_datasets))
+
+    train_dataset.map()
+
+    train_dataset = train_dataset.batch(1)
+    train_dataset = train_dataset.prefetch(5)
     val_dataset = val_dataset.batch(1)
     val_dataset = val_dataset.prefetch(5)
     print('finished')
