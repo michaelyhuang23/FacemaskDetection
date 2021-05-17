@@ -3,18 +3,14 @@ import tensorflow as tf
 import json
 from HelperLib import *
 
-def read_boxes(box_dir, size_dir, validation_split_rate, IoU_threshold):
-    with open(box_dir, 'r') as of:
-        all_boxes = json.load(of)
-    with open(size_dir, 'r') as of:
-        all_sizes = json.load(of)
+def boxes_to_obj_dataset(all_boxes, all_sizes, validation_split_rate, IoU_threshold):
     total_size = len(all_boxes)
 
     def evaluate_objectness(r, c, r_size, c_size, box):
         return get_IoU((c*c_size, r*r_size, (c+1)*c_size, (r+1)*r_size), box)+1-IoU_threshold
         # threshold of IoU is 0.3
 
-    def boxes_to_losses(nrow, ncol, boxes):
+    def boxes_to_obj(nrow, ncol, boxes):
         frow = calc_preprocessor_output_size(nrow)
         fcol = calc_preprocessor_output_size(ncol)
         box_count = len(boxes)
@@ -46,7 +42,7 @@ def read_boxes(box_dir, size_dir, validation_split_rate, IoU_threshold):
     all_objectnesses = []
 
     for i in range(total_size):
-        ret = boxes_to_losses(*all_sizes[i], all_boxes[i])
+        ret = boxes_to_obj(*all_sizes[i], all_boxes[i])
         all_objectnesses.append(ret)
 
     train_size = int(total_size*(1-validation_split_rate))
@@ -102,6 +98,17 @@ def read_imgs(img_path, validation_split_rate):
         lambda: val_imgs_np, output_types=tf.float32, output_shapes=(None, None, 3))
     return train_imgs_dataset, val_imgs_dataset, train_size, total_size-train_size
 
+def read_boxes(box_path, size_path):
+    with open(box_path, 'r') as of:
+        all_boxes = json.load(of)
+    with open(size_path, 'r') as of:
+        all_sizes = json.load(of)
+    box_dataset = tf.data.Dataset.from_generator(
+        lambda: all_boxes, output_types=(tf.int32), output_shapes=(None,4))
+    size_dataset = tf.data.Dataset.from_generator(lambda: all_sizes, output_types=(tf.int32), output_shapes=(2))
+    return box_dataset, size_dataset
+
+
 @tf.function
 def random_resize(img,*objectnesses):
     rand_scale = tf.random.uniform(shape=[],minval=0.5,maxval=2)
@@ -115,9 +122,9 @@ def random_resize(img,*objectnesses):
 
 def read_data(img_path, box_path, size_path, val_split, IoU_threshold):
     print('reading data and preprocessing...')
+    train_img_dataset, val_img_dataset, train_size, val_size = read_imgs(img_path, val_split)
     train_box_datasets, val_box_datasets = read_boxes(
         box_path, size_path, val_split, IoU_threshold)
-    train_img_dataset, val_img_dataset, train_size, val_size = read_imgs(img_path, val_split)
 
     train_dataset = tf.data.Dataset.zip(
         (train_img_dataset, *train_box_datasets))
