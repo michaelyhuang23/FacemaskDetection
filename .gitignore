@@ -3,3 +3,12 @@ __pycache__/
 Accessory Documents/
 .DS_Store
 .DS_Store
+data_boxes_test.txt
+data_boxes_train.txt
+data_boxes_val.txt
+data_types_test.txt
+data_types_train.txt
+data_types_val.txt
+imgs_val.npy
+imgs_train.npy
+imgs_test.npy
