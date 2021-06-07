@@ -8,16 +8,18 @@ import sys
 import time
 
 ProposerModel = FullProposer()
-
-train_dataset, val_dataset, train_size, val_size = read_data(
-    'Data/imgs_train.npy', 'Data/data_boxes_train.txt', 'Data/data_sizes_train.txt', 0.2,0.3)
-
+train_size = 650
+repetition = 1
+print('reading data and preprocessing...')
+train_dataset = read_data('Data/imgs_train.npy', 'Data/data_boxes_train.txt',0.3,randomize=True)
+val_size = 100
+val_dataset = read_data('Data/imgs_val.npy','Data/data_boxes_val.txt',0.3)
 adamOptimizer = tf.keras.optimizers.Adam(learning_rate=3*1e-4)
 bceLoss = tf.nn.weighted_cross_entropy_with_logits
 metricFalsePos = [tf.keras.metrics.FalsePositives() for i in range(5)]
 metricFalseNeg = [tf.keras.metrics.FalseNegatives() for i in range(5)]
 loss_positive_scale = 1.5
-case_proportions = [167.9082497540594, 148.22599203551056, 46.4583276642625, 25.943319182251948, 31.739572736520874]
+case_proportions = [1.3641676756727454, 1.3464666750831857, 1.145807759214758, 1.060058355663927, 1.3]
 # this loss_positive_scale controls the trade off between positive acc and negative acc
 # 340 is baseline because it's the ratio of actual positive to all data
 # (thus almost the ratio of actual positives to actual negatives)
@@ -124,7 +126,7 @@ for epoch in range(Epoch):
         loss = train_step(*train_data)
         lossAvg = (lossAvg*i + loss)/(i+1)
         sys.stdout.write("training: %d/%d; train loss is: %f; time per batch: %f \r" %
-                         (i, train_size, lossAvg, time.time()-st))
+                         (i, train_size*repetition, lossAvg, time.time()-st))
         sys.stdout.flush()
     train_losses.append(lossAvg)
     print(f'epoch {epoch+1} is finished')
@@ -159,7 +161,7 @@ for epoch in range(Epoch):
         loss = train_step(*train_data)
         lossAvg = (lossAvg*i + loss)/(i+1)
         sys.stdout.write("finetuning: %d/%d; train loss is: %f; time per batch: %f \r" %
-                         (i, train_size, lossAvg, time.time()-st))
+                         (i, train_size*repetition, lossAvg, time.time()-st))
         sys.stdout.flush()
     finetune_losses.append(lossAvg)
     print(f'epoch {epoch+1} is finished')

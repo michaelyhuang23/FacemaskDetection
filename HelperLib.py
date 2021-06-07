@@ -35,7 +35,7 @@ def count_elements(dataset):
     elem_count = [0,0,0,0,0]
     positive_count = [0,0,0,0,0]
     for data in dataset:
-        img, *labels = data
+        _, *labels = data
         elem_count = [tf.size(labels[i])+elem_count[i] for i in range(5)]
         positive_count = [tf.math.count_nonzero(labels[i])+positive_count[i] for i in range(5)]
     return positive_count,[tf.cast(elem_count[i],tf.int64)-positive_count[i] for i in range(5)]
