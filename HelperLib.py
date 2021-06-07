@@ -18,6 +18,8 @@ def calc_8(input_size):
 def calc_12(input_size):
     return (((input_size-1)//2+1)-6)//3+1
 
+calc_func = [calc_2, calc_3, calc_5, calc_8, calc_12]
+
 def calc_preprocessor_output_size(input_size):
     return (((((((((input_size-3)//2+1)-2)-3)//2+1)-2)-3)//2+1)-3)//2+1
 
