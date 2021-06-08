@@ -11,18 +11,22 @@ ProposerModel = FullProposer()
 train_size = 650
 repetition = 1
 print('reading data and preprocessing...')
-train_dataset = read_data('Data/imgs_train.npy', 'Data/data_boxes_train.txt',0.3,randomize=True)
-val_size = 100
+train_dataset = read_data('Data/imgs_train.npy', 'Data/data_boxes_train.txt',0.3)
+train_size = len(train_dataset)
 val_dataset = read_data('Data/imgs_val.npy','Data/data_boxes_val.txt',0.3)
+val_size = len(val_dataset)
+
 adamOptimizer = tf.keras.optimizers.Adam(learning_rate=3*1e-4)
 bceLoss = tf.nn.weighted_cross_entropy_with_logits
 metricFalsePos = [tf.keras.metrics.FalsePositives() for i in range(5)]
 metricFalseNeg = [tf.keras.metrics.FalseNegatives() for i in range(5)]
 loss_positive_scale = 1.5
-case_proportions = [1.3641676756727454, 1.3464666750831857, 1.145807759214758, 1.060058355663927, 1.3]
+case_proportions = [142.13843280068323, 127.41335978629806, 52.51596434586317, 35.644690504416815, 30.839078674934328]
 # this loss_positive_scale controls the trade off between positive acc and negative acc
 # 340 is baseline because it's the ratio of actual positive to all data
 # (thus almost the ratio of actual positives to actual negatives)
+
+print("finish load")
 
 val_positive_count, val_negative_count = count_elements(val_dataset)
 val_positive_count = [tf.cast(val_positive_count[i], tf.float32) for i in range(5)]
@@ -107,7 +111,7 @@ def eval(dataset, size):
 print('positive acc indicates the percent of actual positives it correctly predicted')
 print('negative acc indicates the percent of actual negatives it correctly predicted')
 
-min_loss, negAcc, posAcc = eval(val_dataset, val_size)
+min_loss, negAcc, posAcc = eval(train_dataset, train_size*repetition)
 print()
 print(f'initial loss is {min_loss}')
 print('initial positive acc is',*posAcc)
@@ -156,12 +160,12 @@ for epoch in range(Epoch):
     for i in range(5):
         metricFalsePos[i].reset_states()
         metricFalseNeg[i].reset_states()
-    for i, train_data in enumerate(train_dataset):
+    for i, train_data in enumerate(val_dataset):
         st = time.time()
         loss = train_step(*train_data)
         lossAvg = (lossAvg*i + loss)/(i+1)
         sys.stdout.write("finetuning: %d/%d; train loss is: %f; time per batch: %f \r" %
-                         (i, train_size*repetition, lossAvg, time.time()-st))
+                         (i, val_size, lossAvg, time.time()-st))
         sys.stdout.flush()
     finetune_losses.append(lossAvg)
     print(f'epoch {epoch+1} is finished')
