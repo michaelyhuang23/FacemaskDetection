@@ -31,11 +31,14 @@ def get_IoU(boxes1, boxes2):
     unionArea = get_area(boxes1)+get_area(boxes2)-get_area(boxInter)
     return interArea/unionArea
 
-def count_elements(dataset):
+def count_elements_step(labels, elem_count, positive_count):
+    elem_count = [tf.size(labels[i])+elem_count[i] for i in range(5)]
+    positive_count = [tf.math.count_nonzero(labels[i])+positive_count[i] for i in range(5)]
+    return elem_count, positive_count
+
+def count_elements(labels_data):
     elem_count = [0,0,0,0,0]
     positive_count = [0,0,0,0,0]
-    for data in dataset:
-        _, *labels = data
-        elem_count = [tf.size(labels[i])+elem_count[i] for i in range(5)]
-        positive_count = [tf.math.count_nonzero(labels[i])+positive_count[i] for i in range(5)]
+    for labels in labels_data:
+        elem_count, positive_count = count_elements_step(labels,elem_count,positive_count)
     return positive_count,[tf.cast(elem_count[i],tf.int64)-positive_count[i] for i in range(5)]

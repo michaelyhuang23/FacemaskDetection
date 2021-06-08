@@ -19,10 +19,7 @@ def boxes_to_obj(boxes, nrow, ncol, IoU_threshold):
         for j in range(5):
             rsize = calc_func[j](frow)
             csize = calc_func[j](fcol)
-            if rsize==0 or csize==0:
-                objectness = 0
-            else:
-                objectness = np.fromfunction(evaluate_objectness,(rsize, csize),r_size=nrow/rsize, c_size=ncol/csize, box=box)
+            objectness = np.fromfunction(evaluate_objectness,(rsize, csize),r_size=nrow/rsize, c_size=ncol/csize, box=box)
             objectness_list[j]=objectness
             maxVal = np.maximum(maxVal, np.max(objectness))
         if maxVal < 1:
@@ -43,7 +40,8 @@ def read_boxes(box_path):
     return all_boxes_np
 
 def random_resize(img, boxes):
-    rand_scale = np.random.uniform(0.5,2.0)
+    # there's no point going belong 0.7 since there the largest box covers the entire screen
+    rand_scale = np.random.uniform(0.7,2.0)
     target = (int(rand_scale*img.shape[1]),int(rand_scale*img.shape[0]))
     img = cv2.resize(img,dsize=target)
     boxes = np.floor(rand_scale*boxes.astype(np.float32))
