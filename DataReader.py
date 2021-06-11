@@ -2,7 +2,6 @@ import numpy as np
 import tensorflow as tf
 import cv2
 import json
-
 from tensorflow.python.framework.tensor_spec import TensorSpec
 from HelperLib import *
 
@@ -11,9 +10,10 @@ def boxes_to_obj(boxes, nrow, ncol, IoU_threshold):
     frow = calc_preprocessor_output_size(nrow)
     fcol = calc_preprocessor_output_size(ncol)
     fobjectness_list = [0]*5
+    objs_to_boxes = [np.zeros((calc_func[j](frow),calc_func[j](fcol)),dtype=np.int32) for j in range(5)]
     def evaluate_objectness(r, c, r_size, c_size, box):
         return get_IoU((c*c_size, r*r_size, (c+1)*c_size, (r+1)*r_size), box)+1-IoU_threshold
-    for box in boxes:
+    for i,box in enumerate(boxes):
         maxVal = 0.0
         objectness_list = [None]*5
         for j in range(5):
@@ -24,9 +24,11 @@ def boxes_to_obj(boxes, nrow, ncol, IoU_threshold):
             maxVal = np.maximum(maxVal, np.max(objectness))
         if maxVal < 1:
             objectness_list = [obj*1.001/maxVal for obj in objectness_list]
-        fobjectness_list = [np.maximum(obj1, obj2) for obj1, obj2 in zip(objectness_list, fobjectness_list)]
+        for k,(obj1,obj2) in enumerate(zip(objectness_list,fobjectness_list)):
+            fobjectness_list[k]=np.maximum(obj1,obj2)
+            objs_to_boxes[k] = np.where(obj1>obj2,i,objs_to_boxes[k])
     fobjectness_list = [np.floor(obj) for obj in fobjectness_list]
-    return fobjectness_list
+    return fobjectness_list,objs_to_boxes
 
 
 def read_imgs(img_path):
@@ -39,6 +41,11 @@ def read_boxes(box_path):
     all_boxes_np = [np.array(boxes) for boxes in all_boxes]
     return all_boxes_np
 
+def read_types(type_path):
+    with open(type_path,'r') as of:
+        all_types = json.load(of)
+    return all_types
+
 def random_resize(img, boxes):
     # there's no point going belong 0.7 since there the largest box covers the entire screen
     rand_scale = np.random.uniform(0.7,2.0)
@@ -47,10 +54,13 @@ def random_resize(img, boxes):
     boxes = np.floor(rand_scale*boxes.astype(np.float32))
     return img, boxes
 
-def read_data(img_path, box_path):
+def read_data(img_path, box_path, type_path=None):
     img_data = read_imgs(img_path)
     box_data = read_boxes(box_path)
-    return list(zip(img_data,box_data))
+    if type_path is None:
+        return list(zip(img_data,box_data))
+    type_data = read_types(type_path)
+    return list(zip(img_data,box_data,type_data))
 
 # sizes = [(img.shape[0],img.shape[1]) for img in img_data]
 #     objs = [[],[],[],[],[]]

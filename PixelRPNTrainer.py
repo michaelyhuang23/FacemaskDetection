@@ -1,4 +1,4 @@
-from ModelCreator import FullProposer
+from ModelCreator import ProposerModel, preprocessor
 from DataReader import *
 from HelperLib import count_elements
 import numpy as np
@@ -7,7 +7,6 @@ import json
 import sys
 import time
 
-ProposerModel = FullProposer()
 train_size = 650
 Epoch = 30
 IoU_threshold = 0.3
@@ -25,7 +24,7 @@ metricFalseNeg = [tf.keras.metrics.FalseNegatives() for i in range(5)]
 loss_positive_scale = 1.5
 case_proportions = [142.13843280068323, 127.41335978629806, 52.51596434586317, 35.644690504416815, 30.839078674934328]
 # this loss_positive_scale controls the trade off between positive acc and negative acc
-val_data = [(img,*boxes_to_obj(boxes,img.shape[0],img.shape[1],IoU_threshold)) for img, boxes in val_data]
+val_data = [(img,*boxes_to_obj(boxes,img.shape[0],img.shape[1],IoU_threshold)[0]) for img, boxes in val_data]
 # convert to obj data
 
 print("finish load")
@@ -129,7 +128,7 @@ for epoch in range(Epoch):
         st = time.time()
         img, boxes = data
         img, boxes = random_resize(img, boxes)
-        labels = boxes_to_obj(boxes, img.shape[0],img.shape[1],IoU_threshold)
+        labels,_ = boxes_to_obj(boxes, img.shape[0],img.shape[1],IoU_threshold)
         labels = [label[np.newaxis,...] for label in labels]
         loss = train_step(img[np.newaxis,...],*labels)
         lossAvg = (lossAvg*i + loss)/(i+1)

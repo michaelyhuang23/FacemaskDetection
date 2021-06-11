@@ -19,7 +19,23 @@ def calc_8(input_size):
 def calc_12(input_size):
     return (((input_size-1)//2+1)-6)//3+1
 
+def calc_2_inv(input_size):
+    return input_size+1
+
+def calc_3_inv(input_size):
+    return input_size+2
+
+def calc_5_inv(input_size):
+    return (((input_size-1)*1+3)-1)*2+1
+
+def calc_8_inv(input_size):
+    return (((input_size-1)*2+3)-1)*2+1
+
+def calc_12_inv(input_size):
+    return (((input_size-1)*3+6)-1)*2+1
+
 calc_func = [calc_2, calc_3, calc_5, calc_8, calc_12]
+calc_func_inv = [calc_2_inv, calc_3_inv, calc_5_inv, calc_8_inv, calc_12_inv]
 
 def calc_preprocessor_output_size(input_size):
     return (((((((((input_size-3)//2+1)-2)-3)//2+1)-2)-3)//2+1)-3)//2+1
