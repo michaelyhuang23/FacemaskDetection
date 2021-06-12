@@ -32,13 +32,9 @@ def loss_func(r_size, c_size, types, regresses, filters, objboxes ,rtypes, rboxe
     if tf.shape(types)[0]==0:
         return 0
     filters = filters[:,1:]
-    print(objboxes.shape)
-    print(tf.shape(filters))
-    print(tf.shape(types))
-    print(tf.shape(regresses))
-    ids = tf.gather_nd(objboxes, filters)
+    ids = tf.gather_nd(objboxes, filters)[...,tf.newaxis]
     coboxes = tf.cast(tf.gather_nd(rboxes,ids),tf.float32)
-    cotypes = tf.gather_nd(rtypes,ids)
+    cotypes = tf.gather_nd(tf.convert_to_tensor(rtypes),ids)
     filters = tf.cast(tf.roll(filters,1,axis=1),tf.float32)
     posLow = filters*tf.constant([c_size,r_size])
     posHigh = (filters+1)*tf.constant([c_size,r_size])
@@ -71,7 +67,7 @@ def train_step(img, objs, objboxes, boxes, types):
         loss = 0
         for i,elem in enumerate(ret):
             loss += loss_func(nrow/rsize[i],ncol/csize[i],*elem,objboxes[i],types,boxes)
-    gradients = tape.gradient(loss, FullRCNNModel.trainable_variables)
+    gradients = tape.gradient(loss, FullRCNNModel.trainable_variables, unconnected_gradients='zero')
     adamOptimizer.apply_gradients(
         zip(gradients, FullRCNNModel.trainable_variables))
     return loss
@@ -91,7 +87,6 @@ def eval_step(img, objs, objboxes, boxes, types):
         csize[i] = calc_func[i](fcol)
     loss = 0
     for i,elem in enumerate(ret):
-        print(*elem)
         loss += loss_func(nrow/rsize[i],ncol/csize[i],*elem,objboxes[i],types,boxes)
     return loss
 
@@ -128,7 +123,7 @@ for epoch in range(Epoch):
                         (i, train_size, lossAvg, time.time()-st))
         sys.stdout.flush()
     train_losses.append(lossAvg)
-    print(f'epoch {epoch+1} is finished, computing acc...')
+    print(f'epoch {epoch+1} is finished')
     loss = eval(val_data, val_size)
     train_val_losses.append(loss)
     print(f'val loss is {loss}')

@@ -1,3 +1,4 @@
+from os import name
 import tensorflow as tf
 from tensorflow.keras.layers import Dense, Flatten, Conv2D, BatchNormalization, MaxPooling2D, Input, Dropout
 from tensorflow.keras import Model
@@ -204,34 +205,33 @@ class FullProposer(Model):
                     self.preprocessor.get_layer(f'{name}_{block}{i}').trainable=trainable
 
 class RCNN(Model):
-    @tf.function(input_signature=[tf.TensorSpec(shape=(3), dtype=tf.int64), tf.TensorSpec(shape=(), dtype=tf.int32)])
-    def getROIfeature(self, inputs, size):
+    @tf.function(input_signature=[tf.TensorSpec(shape=(1,None,None,192), dtype=tf.float32),tf.TensorSpec(shape=(), dtype=tf.int32),tf.TensorSpec(shape=(), dtype=tf.int32),tf.TensorSpec(shape=(3), dtype=tf.int64), tf.TensorSpec(shape=(), dtype=tf.int32)])
+    def getROIfeature(self, features, frow, fcol, inputs, size):
         label = tf.cast(inputs[0],tf.int32)
         rrow = tf.constant(0,dtype=tf.int32)
         ccol = tf.constant(0,dtype=tf.int32)
         if size==0:
-            rrow = calc_func[0](self.frow)
-            ccol = calc_func[0](self.fcol)
+            rrow = calc_func[0](frow)
+            ccol = calc_func[0](fcol)
         elif size==1:
-            rrow = calc_func[1](self.frow)
-            ccol = calc_func[1](self.fcol)
+            rrow = calc_func[1](frow)
+            ccol = calc_func[1](fcol)
         elif size==2:
-            rrow = calc_func[2](self.frow)
-            ccol = calc_func[2](self.fcol)
+            rrow = calc_func[2](frow)
+            ccol = calc_func[2](fcol)
         elif size==3:
-            rrow = calc_func[3](self.frow)
-            ccol = calc_func[3](self.fcol)
+            rrow = calc_func[3](frow)
+            ccol = calc_func[3](fcol)
         elif size==4:
-            rrow = calc_func[4](self.frow)
-            ccol = calc_func[4](self.fcol)
+            rrow = calc_func[4](frow)
+            ccol = calc_func[4](fcol)
         else:
             tf.print("error")
-        r = tf.cast(tf.math.floor(tf.cast(inputs[1],tf.int32)*(self.frow-self.sizes[size])/(rrow-1)),tf.int32)
-        c = tf.cast(tf.math.floor(tf.cast(inputs[2],tf.int32)*(self.fcol-self.sizes[size])/(ccol-1)),tf.int32)
+        r = tf.cast(tf.math.floor(tf.cast(inputs[1],tf.int32)*(frow-self.sizes[size])/(rrow-1)),tf.int32)
+        c = tf.cast(tf.math.floor(tf.cast(inputs[2],tf.int32)*(fcol-self.sizes[size])/(ccol-1)),tf.int32)
         rEnd = r+self.sizes[size]
         cEnd = c+self.sizes[size]
-        tf.print(r,rEnd,c,cEnd,self.fcol,ccol)
-        return self.features[label, r:rEnd, c:cEnd, :]
+        return features[label, r:rEnd, c:cEnd, :]
 
     def __init__(self):
         super(RCNN, self).__init__()
@@ -239,22 +239,22 @@ class RCNN(Model):
             [2, 3, 5, 8, 12], dtype=tf.int32)
         # takes input of (17,17,768) or larger
         self.conv2d_condense1 = Conv2D(
-            384, (1, 1), padding='same', activation='relu')
+            384, (1, 1), padding='same', activation='relu',name='conv2d_condense1')
         self.batch_norm1 = BatchNormalization()
         # if we set this number too small, it creates information bottleneck
         # if it's high, we cannot use resnet connection
         self.conv2d_condense2 = Conv2D(
-            192, (3, 3), padding='same', activation='relu')
+            192, (3, 3), padding='same', activation='relu',name='conv2d_condense2')
         self.batch_norm2 = BatchNormalization()
 
 
-        self.conv2d_extract12_condense = Conv2D(96, (1, 1), activation='relu')
+        self.conv2d_extract12_condense = Conv2D(96, (1, 1), activation='relu',name='conv2d_extract12_condense')
         self.batch_norm_extract12a = BatchNormalization()
-        self.conv2d_extract12_supercondense = Conv2D(48, (1, 1), activation='relu')
+        self.conv2d_extract12_supercondense = Conv2D(48, (1, 1), activation='relu',name='conv2d_extract12_supercondense')
         self.batch_norm_extract12b = BatchNormalization()
-        self.conv2d_12_8 = Conv2D(48, (5,5), activation='relu')
+        self.conv2d_12_8 = Conv2D(48, (5,5), activation='relu',name='conv2d_12_8')
         self.batch_norm_extract12c = BatchNormalization()
-        self.conv2d_extract12_5 = Conv2D(96,(4,4),strides=(2,2),activation='relu')
+        self.conv2d_extract12_5 = Conv2D(96,(4,4),strides=(2,2),activation='relu',name='conv2d_extract12_5')
         self.batch_norm_extract12d = BatchNormalization()
 
         self.conv2d_extract8_condense = Conv2D(96, (1, 1), activation='relu')
@@ -308,15 +308,13 @@ class RCNN(Model):
         self.features = self.batch_norm2(self.features)
         self.frow = tf.shape(self.features)[1]
         self.fcol = tf.shape(self.features)[2]
-
         # extract2
         filtered2 = tf.where(extract2 > 0.5)
-        tf.print("filtered2: "+str(filtered2))
         shape2 = (2, 2, 192)
         if filtered2.shape[0] == 0:
             features2 = tf.zeros((0, *shape2))
         else:
-            features2 = tf.map_fn(lambda pos : self.getROIfeature(pos, 0), filtered2, fn_output_signature=tf.TensorSpec(shape=shape2, dtype=tf.float32))
+            features2 = tf.map_fn(lambda pos : self.getROIfeature(self.features,self.frow,self.fcol,pos, 0), filtered2, fn_output_signature=tf.TensorSpec(shape=shape2, dtype=tf.float32))
         # expected shape (new_batch_size,3,3,#channels)
 
         features2 = self.conv2d_extract2_condense(features2)
@@ -324,14 +322,12 @@ class RCNN(Model):
         features2 = self.conv2d_extract2(features2)
         features2 = self.batch_norm_extract2b(features2)
 
-
         filtered3 = tf.where(extract3 > 0.5)
-        tf.print("filtered3: "+str(filtered3))
         shape3 = (3, 3, 192)
         if filtered3.shape[0] == 0:
             features3 = tf.zeros((0, *shape3))
         else:
-            features3 = tf.map_fn(lambda pos : self.getROIfeature(pos, 1), filtered3, fn_output_signature=tf.TensorSpec(shape=shape3, dtype=tf.float32))
+            features3 = tf.map_fn(lambda pos : self.getROIfeature(self.features,self.frow,self.fcol,pos, 1), filtered3, fn_output_signature=tf.TensorSpec(shape=shape3, dtype=tf.float32))
 
         features3 = self.conv2d_extract3_condense(features3)
         features3 = self.batch_norm_extract3a(features3)
@@ -346,12 +342,11 @@ class RCNN(Model):
         features3 = self.batch_norm_extract2b(features3)
 
         filtered5 = tf.where(extract5 > 0.5)
-        tf.print("filtered5: "+str(filtered5))
         shape5 = (5, 5, 192)
         if filtered5.shape[0] == 0:
             features5 = tf.zeros((0, *shape5))
         else:
-            features5 = tf.map_fn(lambda pos : self.getROIfeature(pos, 2), filtered5, fn_output_signature=tf.TensorSpec(shape=shape5, dtype=tf.float32))
+            features5 = tf.map_fn(lambda pos : self.getROIfeature(self.features,self.frow,self.fcol,pos, 2), filtered5, fn_output_signature=tf.TensorSpec(shape=shape5, dtype=tf.float32))
 
         features5 = self.conv2d_extract5_condense(features5)
         features5 = self.batch_norm_extract5a(features5)
@@ -368,12 +363,11 @@ class RCNN(Model):
         features5 = self.batch_norm_extract2b(features5)
 
         filtered8 = tf.where(extract8 > 0.5)
-        tf.print("filtered8: "+str(filtered8))
         shape8 = (8, 8, 192)
         if filtered8.shape[0] == 0:
             features8 = tf.zeros((0, *shape8))
         else:
-            features8 = tf.map_fn(lambda pos : self.getROIfeature(pos, 3), filtered8, fn_output_signature=tf.TensorSpec(shape=shape8, dtype=tf.float32))
+            features8 = tf.map_fn(lambda pos : self.getROIfeature(self.features,self.frow,self.fcol,pos, 3), filtered8, fn_output_signature=tf.TensorSpec(shape=shape8, dtype=tf.float32))
 
         features8 = self.conv2d_extract8_condense(features8)
         features8 = self.batch_norm_extract8a(features8)
@@ -398,7 +392,7 @@ class RCNN(Model):
         if filtered12.shape[0] == 0:
             features12 = tf.zeros((0, *shape12))
         else:
-            features12 = tf.map_fn(lambda pos : self.getROIfeature(pos, 4), filtered12, fn_output_signature=tf.TensorSpec(shape=shape12, dtype=tf.float32))
+            features12 = tf.map_fn(lambda pos : self.getROIfeature(self.features,self.frow,self.fcol,pos, 4), filtered12, fn_output_signature=tf.TensorSpec(shape=shape12, dtype=tf.float32))
 
         features12 = self.conv2d_extract12_condense(features12)
         features12 = self.batch_norm_extract12a(features12)
@@ -467,9 +461,9 @@ class RCNN(Model):
 
     def build_graph(self, input_shape):
         features = Input(shape=input_shape)
-        objectness = [Input(shape=(16, 16, 1)), Input(shape=(15, 15, 1)), Input(
-            shape=(7, 7, 1)), Input(shape=(4, 4, 1)), Input(shape=(2, 2, 1))]
-        return Model(inputs=[features, *objectness], outputs=self([features, objectness]))
+        objectness = [Input(shape=(16, 16)), Input(shape=(15, 15)), Input(
+            shape=(7, 7)), Input(shape=(4, 4)), Input(shape=(2, 2))]
+        return Model(inputs=[features, objectness], outputs=self(features, objectness))
 
 
 class FullRCNN(Model):
