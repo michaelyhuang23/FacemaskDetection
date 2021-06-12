@@ -22,8 +22,8 @@ val_data = [(img,*boxes_to_obj(boxes,img.shape[0],img.shape[1],IoU_threshold), b
 train_data = [(img,*boxes_to_obj(boxes,img.shape[0],img.shape[1],IoU_threshold), boxes, types) for img, boxes, types in train_data]
 
 sparse_crossentropy = tf.keras.losses.SparseCategoricalCrossentropy()
-adamOptimizer = tf.keras.optimizers.Adam(learning_rate=3*1e-4)
-classification_coeff = 1
+adamOptimizer = tf.keras.optimizers.Adam(learning_rate=3*1e-6)
+classification_coeff = 1000
 regressor_coeff = 1
 
 print("finish load")
@@ -31,6 +31,11 @@ print("finish load")
 def loss_func(r_size, c_size, types, regresses, filters, objboxes ,rtypes, rboxes):
     if tf.shape(types)[0]==0:
         return 0
+    print(objboxes,rtypes,rboxes)
+    print(r_size,c_size)
+    print(types)
+    print(regresses)
+    print(filters)
     filters = filters[:,1:]
     ids = tf.gather_nd(objboxes, filters)[...,tf.newaxis]
     coboxes = tf.cast(tf.gather_nd(rboxes,ids),tf.float32)
@@ -41,10 +46,12 @@ def loss_func(r_size, c_size, types, regresses, filters, objboxes ,rtypes, rboxe
     pos = tf.concat([posLow,posHigh],axis=1)
     regresses*=[1,1,-1,-1]*regressor_coeff
     pos+=regresses
-    abs_diff = (pos-coboxes)
+    abs_diff = tf.math.abs(pos-coboxes)
     losses = tf.where(abs_diff<1,(abs_diff**2)/2,abs_diff-0.5)
     loss = tf.math.reduce_sum(losses)
-    loss += classification_coeff*sparse_crossentropy(cotypes,types)
+    closs = classification_coeff*sparse_crossentropy(cotypes,types)
+    print(types,cotypes,closs, loss, abs_diff)
+    loss += closs
     return loss
 
 
@@ -75,7 +82,7 @@ def train_step(img, objs, objboxes, boxes, types):
 
 def eval_step(img, objs, objboxes, boxes, types):
     objs = [obj[np.newaxis,...] for obj in objs]
-    ret = FullRCNNModel(img[np.newaxis,...], objs, training=False)
+    ret = FullRCNNModel(img[np.newaxis,...], objs, training=True)
     nrow = img.shape[0]
     ncol = img.shape[1]
     frow = calc_preprocessor_output_size(nrow)
@@ -87,7 +94,9 @@ def eval_step(img, objs, objboxes, boxes, types):
         csize[i] = calc_func[i](fcol)
     loss = 0
     for i,elem in enumerate(ret):
-        loss += loss_func(nrow/rsize[i],ncol/csize[i],*elem,objboxes[i],types,boxes)
+        rloss = loss_func(nrow/rsize[i],ncol/csize[i],*elem,objboxes[i],types,boxes)
+        print(rloss)
+        loss += rloss
     return loss
 
 
@@ -97,13 +106,17 @@ def eval(dataset, size):
         st = time.time()
         img, objs, objboxes, boxes, types = data
         loss = eval_step(img,objs,objboxes,boxes,types)
+        print(loss)
         lossAvg = (lossAvg*i+loss)/(i+1)
         sys.stdout.write("evaluating: %d/%d;  eval loss is: %f;  time per batch: %f \r" %
                          (i, size, lossAvg, time.time()-st))
         sys.stdout.flush()
     return lossAvg
 
+img, objs, objboxes, boxes, types = train_data[0]
+print(train_step(img,objs,objboxes,boxes,types))
 
+print("start eval")
 min_loss = eval(val_data, val_size)
 print()
 print(f'initial loss is {min_loss}')
@@ -118,6 +131,7 @@ for epoch in range(Epoch):
         st = time.time()
         img, objs, objboxes, boxes, types = data
         loss = train_step(img,objs,objboxes,boxes,types)
+        print(loss)
         lossAvg = (lossAvg*i + loss)/(i+1)
         sys.stdout.write("training: %d/%d; train loss is: %f; time per batch: %f \r" %
                         (i, train_size, lossAvg, time.time()-st))
