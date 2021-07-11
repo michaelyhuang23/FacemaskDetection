@@ -1,9 +1,8 @@
-from ModelCreator import ProposerModel, preprocessor
+from ModelCreator import ProposerModel
 from DataReader import *
 from HelperLib import count_elements
 import numpy as np
 import tensorflow as tf
-import json
 import sys
 import time
 
@@ -18,9 +17,15 @@ val_data = read_data('Data/imgs_val.npy','Data/data_boxes_val.txt')
 val_size = len(val_data)
 
 adamOptimizer = tf.keras.optimizers.Adam(learning_rate=3*1e-4)
-bceLoss = tf.nn.weighted_cross_entropy_with_logits
+absLoss = lambda x,y : tf.math.abs(x-y)
+mseLoss = lambda x,y : (x-y)**2 
+sccLoss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True,reduction=tf.keras.losses.Reduction.SUM) 
 metricFalsePos = [tf.keras.metrics.FalsePositives() for i in range(5)]
 metricFalseNeg = [tf.keras.metrics.FalseNegatives() for i in range(5)]
+
+boxWeight = 1
+classWeight = 1
+objWeight = 1
 loss_positive_scale = 1.5
 case_proportions = [142.13843280068323, 127.41335978629806, 52.51596434586317, 35.644690504416815, 30.839078674934328]
 # this loss_positive_scale controls the trade off between positive acc and negative acc
@@ -35,19 +40,30 @@ val_positive_count = [tf.cast(val_positive_count[i], tf.float32) for i in range(
 val_negative_count = [tf.cast(val_negative_count[i], tf.float32) for i in range(5)]
 
 
-@tf.function(input_signature=[tf.TensorSpec(shape=(1,None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32)])
-def loss_binary_crossentropy(pred0, pred1, pred2, pred3, pred4, label0, label1, label2, label3, label4):
-    lossSum = tf.reduce_sum(bceLoss(label0,
-                                    pred0[:, :, :, 0], loss_positive_scale*case_proportions[0]))/tf.cast(tf.size(label0), tf.float32)
-    lossSum += tf.reduce_sum(bceLoss(label1, pred1[:, :, :, 0],
-                                     loss_positive_scale*case_proportions[1]))/tf.cast(tf.size(label1), tf.float32)
-    lossSum += tf.reduce_sum(bceLoss(label2, pred2[:, :, :, 0],
-                                     loss_positive_scale*case_proportions[2]))/tf.cast(tf.size(label2), tf.float32)
-    lossSum += tf.reduce_sum(bceLoss(label3, pred3[:, :, :, 0],
-                                     loss_positive_scale*case_proportions[3]))/tf.cast(tf.size(label3), tf.float32)
-    lossSum += tf.reduce_sum(bceLoss(label4, pred4[:, :, :, 0],
-                                     loss_positive_scale*case_proportions[4]))/tf.cast(tf.size(label4), tf.float32)
-    return lossSum
+#@tf.function(input_signature=[tf.TensorSpec(shape=(1,None, None, 8), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None, 8), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None, 8), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None, 8), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None, 8), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32)])
+def loss_binary_crossentropy(pred0, pred1, pred2, pred3, pred4, label0, label1, label2, label3, label4, class0, class1, class2, class3, class4, box0, box1, box2, box3, box4):
+    size0 = tf.cast(tf.size(label0), tf.float32)
+    size1 = tf.cast(tf.size(label1), tf.float32)
+    size2 = tf.cast(tf.size(label2), tf.float32)
+    size3 = tf.cast(tf.size(label3), tf.float32)
+    size4 = tf.cast(tf.size(label4), tf.float32)
+    
+    lossBox = tf.reduce_sum(absLoss(box0,pred0[:,:,:,4:]))/4/size0
+    lossBox += tf.reduce_sum(absLoss(box1,pred1[:,:,:,4:]))/4/size1
+    lossBox += tf.reduce_sum(absLoss(box2,pred2[:,:,:,4:]))/4/size2
+    lossBox += tf.reduce_sum(absLoss(box3,pred3[:,:,:,4:]))/4/size3
+    lossBox += tf.reduce_sum(absLoss(box4,pred4[:,:,:,4:]))/4/size4
+    lossClass = sccLoss(class0,pred0[:,:,:,1:4])/size0
+    lossClass += sccLoss(class1,pred1[:,:,:,1:4])/size1
+    lossClass += sccLoss(class2,pred2[:,:,:,1:4])/size2
+    lossClass += sccLoss(class3,pred3[:,:,:,1:4])/size3
+    lossClass += sccLoss(class4,pred4[:,:,:,1:4])/size4
+    lossObj = tf.reduce_sum(mseLoss(label0, pred0[:, :, :, 0]))/size0
+    lossObj += tf.reduce_sum(mseLoss(label1, pred1[:, :, :, 0]))/size1
+    lossObj += tf.reduce_sum(mseLoss(label2, pred2[:, :, :, 0]))/size2
+    lossObj += tf.reduce_sum(mseLoss(label3, pred3[:, :, :, 0]))/size3
+    lossObj += tf.reduce_sum(mseLoss(label4, pred4[:, :, :, 0]))/size4
+    return lossBox*boxWeight+lossClass*classWeight+lossObj*objWeight
 
 
 @tf.function(input_signature=[tf.TensorSpec(shape=(1, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32)])
@@ -70,9 +86,9 @@ def train_step(img, label0, label1, label2, label3, label4):
     with tf.GradientTape() as tape:
         # training=True is only needed if there are layers with different
         # behavior during training versus inference (e.g. Dropout).
-        objectnesses = ProposerModel(img, training=True)
-        loss = loss_binary_crossentropy(
-            *objectnesses, label0, label1, label2, label3, label4)
+        preds = ProposerModel(img, training=True)
+        loss = loss_fn(
+            *preds, label0, label1, label2, label3, label4)
         # first_dim of label_objectnesses is batchsize
     gradients = tape.gradient(loss, ProposerModel.trainable_variables)
     metric_binary_acc(*objectnesses, label0, label1, label2, label3, label4)
