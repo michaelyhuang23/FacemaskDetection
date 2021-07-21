@@ -20,8 +20,6 @@ adamOptimizer = tf.keras.optimizers.Adam(learning_rate=3*1e-4)
 absLoss = lambda x,y : tf.math.abs(x-y)
 mseLoss = lambda x,y : (x-y)**2 
 sccLoss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True,reduction=tf.keras.losses.Reduction.SUM) 
-metricFalsePos = [tf.keras.metrics.FalsePositives() for i in range(5)]
-metricFalseNeg = [tf.keras.metrics.FalseNegatives() for i in range(5)]
 
 boxWeight = 1
 classWeight = 1
@@ -41,7 +39,7 @@ val_negative_count = [tf.cast(val_negative_count[i], tf.float32) for i in range(
 
 
 #@tf.function(input_signature=[tf.TensorSpec(shape=(1,None, None, 8), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None, 8), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None, 8), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None, 8), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None, 8), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32)])
-def loss_binary_crossentropy(pred0, pred1, pred2, pred3, pred4, label0, label1, label2, label3, label4, class0, class1, class2, class3, class4, box0, box1, box2, box3, box4):
+def loss_fn(pred0, pred1, pred2, pred3, pred4, label0, label1, label2, label3, label4, class0, class1, class2, class3, class4, box0, box1, box2, box3, box4):
     size0 = tf.cast(tf.size(label0), tf.float32)
     size1 = tf.cast(tf.size(label1), tf.float32)
     size2 = tf.cast(tf.size(label2), tf.float32)
@@ -66,19 +64,19 @@ def loss_binary_crossentropy(pred0, pred1, pred2, pred3, pred4, label0, label1, 
     return lossBox*boxWeight+lossClass*classWeight+lossObj*objWeight
 
 
-@tf.function(input_signature=[tf.TensorSpec(shape=(1, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32)])
-def metric_binary_acc(pred0, pred1, pred2, pred3, pred4, label0, label1, label2, label3, label4):
-    metricFalsePos[0].update_state(label0, tf.math.sigmoid(pred0[:, :, :, 0]))
-    metricFalsePos[1].update_state(label1, tf.math.sigmoid(pred1[:, :, :, 0]))
-    metricFalsePos[2].update_state(label2, tf.math.sigmoid(pred2[:, :, :, 0]))
-    metricFalsePos[3].update_state(label3, tf.math.sigmoid(pred3[:, :, :, 0]))
-    metricFalsePos[4].update_state(label4, tf.math.sigmoid(pred4[:, :, :, 0]))
+# @tf.function(input_signature=[tf.TensorSpec(shape=(1, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None, 1), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32)])
+# def metric_binary_acc(pred0, pred1, pred2, pred3, pred4, label0, label1, label2, label3, label4):
+#     metricFalsePos[0].update_state(label0, tf.math.sigmoid(pred0[:, :, :, 0]))
+#     metricFalsePos[1].update_state(label1, tf.math.sigmoid(pred1[:, :, :, 0]))
+#     metricFalsePos[2].update_state(label2, tf.math.sigmoid(pred2[:, :, :, 0]))
+#     metricFalsePos[3].update_state(label3, tf.math.sigmoid(pred3[:, :, :, 0]))
+#     metricFalsePos[4].update_state(label4, tf.math.sigmoid(pred4[:, :, :, 0]))
 
-    metricFalseNeg[0].update_state(label0, tf.math.sigmoid(pred0[:, :, :, 0]))
-    metricFalseNeg[1].update_state(label1, tf.math.sigmoid(pred1[:, :, :, 0]))
-    metricFalseNeg[2].update_state(label2, tf.math.sigmoid(pred2[:, :, :, 0]))
-    metricFalseNeg[3].update_state(label3, tf.math.sigmoid(pred3[:, :, :, 0]))
-    metricFalseNeg[4].update_state(label4, tf.math.sigmoid(pred4[:, :, :, 0]))
+#     metricFalseNeg[0].update_state(label0, tf.math.sigmoid(pred0[:, :, :, 0]))
+#     metricFalseNeg[1].update_state(label1, tf.math.sigmoid(pred1[:, :, :, 0]))
+#     metricFalseNeg[2].update_state(label2, tf.math.sigmoid(pred2[:, :, :, 0]))
+#     metricFalseNeg[3].update_state(label3, tf.math.sigmoid(pred3[:, :, :, 0]))
+#     metricFalseNeg[4].update_state(label4, tf.math.sigmoid(pred4[:, :, :, 0]))
 
 
 @tf.function(input_signature=[tf.TensorSpec(shape=(1, None, None, 3), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32), tf.TensorSpec(shape=(1, None, None), dtype=tf.float32)])
@@ -91,7 +89,7 @@ def train_step(img, label0, label1, label2, label3, label4):
             *preds, label0, label1, label2, label3, label4)
         # first_dim of label_objectnesses is batchsize
     gradients = tape.gradient(loss, ProposerModel.trainable_variables)
-    metric_binary_acc(*objectnesses, label0, label1, label2, label3, label4)
+    #metric_binary_acc(*objectnesses, label0, label1, label2, label3, label4)
     adamOptimizer.apply_gradients(
         zip(gradients, ProposerModel.trainable_variables))
     return loss
@@ -100,9 +98,9 @@ def train_step(img, label0, label1, label2, label3, label4):
 @tf.function(input_signature=[tf.TensorSpec(shape=(1,None, None, 3), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32), tf.TensorSpec(shape=(1,None, None), dtype=tf.float32)])
 def eval_step(img, label0, label1, label2, label3, label4):
     objectnesses = ProposerModel(img, training=False)
-    loss = loss_binary_crossentropy(
+    loss = loss_fn(
         *objectnesses, label0, label1, label2, label3, label4)
-    metric_binary_acc(*objectnesses, label0, label1, label2, label3, label4)
+    #metric_binary_acc(*objectnesses, label0, label1, label2, label3, label4)
     return loss
 
 
